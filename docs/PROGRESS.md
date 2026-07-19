@@ -2,6 +2,24 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-19 — Phase 6: progress dashboard ✅
+
+**Completed**
+- Pure dashboard metrics in `stats.js`: data-driven weight/reps mode, per-day top weight and max reps, Epley estimated 1RM with weight-0 and reps-over-12 exclusions, all-time PRs with dates, period filtering, and distinct-workout consistency over the trailing 28 days.
+- Dashboard exercise selector uses MRU order; period selector offers 8 weeks, 6 months, and All while PR cards remain honestly all-time.
+- Weighted exercises show top-set weight and best estimated-1RM charts; zero-weight-only exercises show max reps. Mixed weighted-calisthenics days plot 0 added kg where appropriate.
+- Shared dependency-free inline SVG chart with time-scaled x-axis, three y guides, labelled latest value, accessible image label, qualifying-data empty state, and a useful single-session message.
+- Empty tracker, unlogged exercise, no-sessions-in-period, and single-session states render deliberately rather than producing broken charts.
+- Service-worker cache bumped to `gt-v0.8.0` with the chart helper precached.
+
+**Tests run** (2026-07-19): Vitest 54/54 (dashboard fixtures cover mode selection, Epley decimals/exclusions, PRs, periods, consistency, and empty data); Playwright 9/9 browser tests including weighted/bodyweight dashboard modes, PRs, consistency, and single-point states; `check:precache` OK (23 files).
+
+**Known issues**: none.
+
+**Next step**: Phase 7 — restorable backup/import, remaining settings, persistence status, and backup reminder.
+
+**Departures from plan**: none.
+
 ## 2026-07-19 — Owner addition: analysis-ready data export ✅
 
 **Completed**

@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { workoutDay, compareSets, dayDurationMs, groupDaySets } from '../js/stats.js';
+import {
+  workoutDay, compareSets, dayDurationMs, groupDaySets, epley,
+  exerciseProgress, filterSetsByPeriod, consistencyWorkouts,
+} from '../js/stats.js';
 
 // Helper: epoch ms for a local wall-clock time at a fixed offset (minutes east of UTC).
 function localMs(y, mo, d, h, mi, offsetMin) {
@@ -64,5 +67,44 @@ describe('day overview helpers (plan §6.7)', () => {
     expect(groups.map((group) => group.exerciseId)).toEqual(['a', 'b']);
     expect(groups[0].sets.map((entry) => entry.id)).toEqual(['a1', 'a2']);
     expect(groups[1].sets.map((entry) => entry.id)).toEqual(['b1', 'b2']);
+  });
+});
+
+describe('dashboard metrics (plan §11.2)', () => {
+  const set = (id, day, weightKg, reps) => ({
+    id, exerciseId: 'ex', workoutDay: day, weightKg, reps,
+    performedAtMs: Date.parse(`${day}T12:00:00Z`), createdAtMs: id.charCodeAt(0),
+  });
+
+  it('calculates top weight and eligible Epley values per day', () => {
+    expect(epley(60, 5)).toBe(70);
+    const result = exerciseProgress([
+      set('a', '2026-07-01', 60, 5), set('b', '2026-07-01', 65, 15),
+      set('c', '2026-07-08', 62.5, 8), set('d', '2026-07-08', 0, 20),
+    ]);
+    expect(result.mode).toBe('weight');
+    expect(result.days[0]).toMatchObject({ day: '2026-07-01', topWeightKg: 65, maxReps: 15, bestE1rmKg: 70 });
+    expect(result.days[1].bestE1rmKg).toBeCloseTo(79.1667, 3);
+    expect(result.prs.heaviest).toEqual({ value: 65, day: '2026-07-01' });
+    expect(result.prs.reps).toEqual({ value: 20, day: '2026-07-08' });
+  });
+
+  it('uses reps mode only when every set is zero-weight', () => {
+    const result = exerciseProgress([set('a', '2026-07-01', 0, 8), set('b', '2026-07-08', 0, 12)]);
+    expect(result.mode).toBe('reps');
+    expect(result.days.map((day) => day.maxReps)).toEqual([8, 12]);
+    expect(result.prs).toEqual({ reps: { value: 12, day: '2026-07-08' } });
+    expect(exerciseProgress([]).mode).toBe('empty');
+  });
+
+  it('filters periods and counts distinct workout days in the trailing 28 days', () => {
+    const sets = [
+      set('a', '2026-01-01', 10, 8), set('b', '2026-05-25', 10, 8),
+      set('c', '2026-06-22', 10, 8), set('d', '2026-06-22', 20, 5), set('e', '2026-07-19', 20, 5),
+    ];
+    expect(filterSetsByPeriod(sets, '2026-07-19', '8w').map((entry) => entry.id)).toEqual(['b', 'c', 'd', 'e']);
+    expect(filterSetsByPeriod(sets, '2026-07-19', '6m').map((entry) => entry.id)).toEqual(['b', 'c', 'd', 'e']);
+    expect(filterSetsByPeriod(sets, '2026-07-19', 'all')).toHaveLength(5);
+    expect(consistencyWorkouts(sets, '2026-07-19')).toBe(2);
   });
 });
