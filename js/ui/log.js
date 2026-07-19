@@ -8,6 +8,7 @@
 
 import { header, toast, formatDayLabel } from './components.js';
 import { parseQuickEntry } from '../parser.js';
+import { openSetEditor } from './set-editor.js';
 
 // Kept in module memory so a sentence survives in-app navigation, but not app
 // termination/reload, as specified in §12.
@@ -84,10 +85,12 @@ export async function render(el, { exerciseId }, ctx) {
     h.textContent = `Today — ${todaySets.length} set${todaySets.length === 1 ? '' : 's'}`;
     todayCard.appendChild(h);
     for (const s of todaySets) {
-      const row = document.createElement('p');
-      row.className = 'sets-line';
+      const row = document.createElement('button');
+      row.className = 'set-row';
       const time = new Date(s.performedAtMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      row.textContent = `${time}  ${fmtSet(s)}`;
+      row.setAttribute('aria-label', `Edit ${fmtSet(s)} at ${time}`);
+      row.innerHTML = `<span>${time}</span><strong>${fmtSet(s)}</strong>`;
+      row.addEventListener('click', () => openSetEditor(s, ctx));
       todayCard.appendChild(row);
     }
     el.appendChild(todayCard);

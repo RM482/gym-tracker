@@ -19,8 +19,8 @@ test('B4: quick-entry sentence previews and saves three sets', async ({ page }) 
   await page.getByRole('button', { name: 'Add 3 sets' }).click();
 
   await expect(page.getByText('Today — 3 sets')).toBeVisible();
-  await expect(page.locator('.sets-line', { hasText: '10 kg × 8' })).toHaveCount(2);
-  await expect(page.locator('.sets-line', { hasText: '9 kg × 8' })).toBeVisible();
+  await expect(page.locator('.set-row', { hasText: '10 kg × 8' })).toHaveCount(2);
+  await expect(page.locator('.set-row', { hasText: '9 kg × 8' })).toBeVisible();
 });
 
 test('B4: a bad fragment saves nothing and shows the fragment', async ({ page }) => {

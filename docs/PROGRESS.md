@@ -2,6 +2,24 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-19 — Phase 5: history, editing and day overview ✅
+
+**Completed**
+- History screen (§6.3): reverse-chronological workout-day cards, full date + session summary headers linking to Day overview, ordered set rows, and clear no-history state.
+- One shared set editor used from History, Day overview, and Today on the Log screen: decimal-comma weight/reps validation, local `datetime-local` editing, derived workout-day preview, and exact timestamp/day movement semantics.
+- Set deletion commits after one confirmation and shows a 6-second Undo action; Undo restores the identical record and expiry leaves the deletion permanent.
+- Day overview (§6.7): Today/Yesterday/date labels, previous/next workout-day navigation with future days blocked, rest-day state, all exercises grouped by first-set order, and set rows opening the shared editor.
+- Day summary shows exercise count, set count, and first-set-to-last-set duration; fewer than two sets renders “—”. Archived exercises remain name-resolvable in historical day views.
+- Pure stats helpers and fixtures added for day duration and cross-exercise grouping; service-worker cache bumped to `gt-v0.6.0` with the shared editor precached.
+
+**Tests run** (2026-07-19): Vitest 49/49 (new day grouping/duration cases); Playwright B1–B5 + B8 green, 7/7 browser tests (editing, timestamp day move, delete + Undo + expiry, two-exercise day grouping/navigation); `check:precache` OK (21 files).
+
+**Known issues**: none.
+
+**Next step**: Phase 6 — dashboard metrics, PRs, consistency, and inline SVG progress charts.
+
+**Departures from plan**: none.
+
 ## 2026-07-19 — Phase 4: quick entry ✅
 
 **Completed**

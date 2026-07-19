@@ -156,6 +156,8 @@ button {
   align-items: center;
   gap: 0.75rem;
 }
+.toast span { flex: 1; }
+.toast-action { color: inherit; min-height: 2.75rem; padding: 0 0.5rem; font-weight: 700; text-decoration: underline; }
 
 @media (prefers-reduced-motion: no-preference) {
   .toast { animation: toast-in 160ms ease-out; }
@@ -197,6 +199,10 @@ button {
 .sheet .btn-primary, .sheet .btn-secondary { margin-top: 0.5rem; }
 .sheet-error { color: var(--danger); min-height: 1.2em; font-size: 0.9rem; }
 .btn-danger { background: var(--danger); }
+.text-danger { color: var(--danger); }
+.sheet-field { display: block; color: var(--text-soft); font-size: 0.85rem; }
+.sheet-field span { display: block; margin-bottom: 0.2rem; }
+.day-move-note { font-size: 0.9rem; }
 
 .menu-item {
   display: block;
@@ -318,3 +324,30 @@ button {
   border-radius: 999px;
   font-variant-numeric: tabular-nums;
 }
+
+/* History and day overview */
+.history-day-link {
+  width: 100%;
+  min-height: 2.75rem;
+  text-align: left;
+  font-weight: 700;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 0.25rem;
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.set-row:last-child { border-bottom: none; }
+.set-row span { color: var(--text-soft); }
+.set-row strong { font-size: 1.05rem; }
+.day-nav h1 { text-align: center; }
+.day-nav .icon-btn:disabled { opacity: 0.3; cursor: default; }
+.day-summary { color: var(--text-soft); text-align: center; margin: 0 0 0.75rem; }
+.day-card h2 { font-size: 1.05rem; }

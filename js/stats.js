@@ -1,6 +1,6 @@
 // stats.js — pure calculation helpers, no DOM/DB (plan §11).
-// Phase 1 ships workout-day grouping and set ordering; dashboard metrics arrive in Phase 6.
-// Public API: workoutDay(performedAtMs, tzOffsetMin), compareSets(a, b)
+// Phase 1 ships workout-day grouping and set ordering; Phase 5 adds day-overview
+// grouping/duration; dashboard metrics arrive in Phase 6.
 
 // D1 (approved): a workout day runs 03:00–03:00 local time, so a set logged at
 // 00:30 belongs to the previous evening's workout.
@@ -18,4 +18,23 @@ export function compareSets(a, b) {
   if (a.performedAtMs !== b.performedAtMs) return a.performedAtMs - b.performedAtMs;
   if (a.createdAtMs !== b.createdAtMs) return a.createdAtMs - b.createdAtMs;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+// Approximate workout duration: first recorded set → last recorded set.
+// A single set has no meaningful duration and returns null (rendered as "—").
+export function dayDurationMs(sets) {
+  if (!Array.isArray(sets) || sets.length < 2) return null;
+  const times = sets.map((set) => set.performedAtMs);
+  return Math.max(...times) - Math.min(...times);
+}
+
+// Input is normally already in deterministic set order. Sorting here keeps the
+// helper pure and safe for fixtures/callers; group order follows first set time.
+export function groupDaySets(sets) {
+  const groups = new Map();
+  for (const set of [...sets].sort(compareSets)) {
+    if (!groups.has(set.exerciseId)) groups.set(set.exerciseId, []);
+    groups.get(set.exerciseId).push(set);
+  }
+  return [...groups].map(([exerciseId, groupedSets]) => ({ exerciseId, sets: groupedSets }));
 }

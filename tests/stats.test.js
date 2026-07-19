@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { workoutDay, compareSets } from '../js/stats.js';
+import { workoutDay, compareSets, dayDurationMs, groupDaySets } from '../js/stats.js';
 
 // Helper: epoch ms for a local wall-clock time at a fixed offset (minutes east of UTC).
 function localMs(y, mo, d, h, mi, offsetMin) {
@@ -46,5 +46,23 @@ describe('compareSets (plan §8.2 ordering rule)', () => {
     const c = { performedAtMs: 100, createdAtMs: 9, id: 'c' };
     const d = { performedAtMs: 100, createdAtMs: 9, id: 'd' };
     expect([d, c, b, a].sort(compareSets).map((s) => s.id)).toEqual(['a', 'c', 'd', 'b']);
+  });
+});
+
+describe('day overview helpers (plan §6.7)', () => {
+  it('calculates duration from first to last set, with no duration for fewer than two', () => {
+    expect(dayDurationMs([])).toBeNull();
+    expect(dayDurationMs([{ performedAtMs: 100 }])).toBeNull();
+    expect(dayDurationMs([{ performedAtMs: 3_100 }, { performedAtMs: 100 }, { performedAtMs: 1_000 }])).toBe(3_000);
+  });
+
+  it('groups exercises by first-set order and preserves set order within each group', () => {
+    const set = (id, exerciseId, performedAtMs) => ({ id, exerciseId, performedAtMs, createdAtMs: performedAtMs });
+    const groups = groupDaySets([
+      set('b2', 'b', 400), set('a2', 'a', 300), set('b1', 'b', 200), set('a1', 'a', 100),
+    ]);
+    expect(groups.map((group) => group.exerciseId)).toEqual(['a', 'b']);
+    expect(groups[0].sets.map((entry) => entry.id)).toEqual(['a1', 'a2']);
+    expect(groups[1].sets.map((entry) => entry.id)).toEqual(['b1', 'b2']);
   });
 });

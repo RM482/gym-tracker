@@ -35,13 +35,29 @@ export function placeholder(text) {
   return p;
 }
 
-export function toast(message) {
+export function toast(message, { durationMs = 4000, actionLabel = null, onAction = null } = {}) {
   const region = document.getElementById('toast-region');
   const t = document.createElement('div');
   t.className = 'toast';
-  t.textContent = message;
+  const text = document.createElement('span');
+  text.textContent = message;
+  t.appendChild(text);
+  let timer;
+  if (actionLabel && onAction) {
+    const action = document.createElement('button');
+    action.className = 'toast-action';
+    action.textContent = actionLabel;
+    action.addEventListener('click', async () => {
+      clearTimeout(timer);
+      action.disabled = true;
+      await onAction();
+      t.remove();
+    });
+    t.appendChild(action);
+  }
   region.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
+  timer = setTimeout(() => t.remove(), durationMs);
+  return () => { clearTimeout(timer); t.remove(); };
 }
 
 // ---------- bottom sheets ----------

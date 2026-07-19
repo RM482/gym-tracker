@@ -16,7 +16,7 @@ test('B3: stepper logging persists across reload', async ({ page }) => {
   await expect(weight).toHaveValue('23');
   await page.getByRole('button', { name: 'Save set' }).click();
   await expect(page.getByText('Today — 1 set')).toBeVisible();
-  await expect(page.getByText('23 kg × 8')).toBeVisible();
+  await expect(page.locator('.set-row', { hasText: '23 kg × 8' })).toBeVisible();
 
   // Values stay for the next set; save again → 2 sets
   await page.getByRole('button', { name: 'Save set' }).click();
