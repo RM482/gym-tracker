@@ -191,6 +191,18 @@ describe('sessions and day queries', () => {
     expect(await store.getPreviousSession(ex.id)).toBeNull();
   });
 
+  it('summarises the most recent session per exercise, including today', async () => {
+    const other = await store.addExercise('Squat');
+    const day = 24 * 3600 * 1000;
+    await store.addSet({ exerciseId: ex.id, weightKg: 9, reps: 8, performedAtMs: platform.now() - 4 * day });
+    await store.addSet({ exerciseId: ex.id, weightKg: 10, reps: 8 }); // today
+    await store.addSet({ exerciseId: other.id, weightKg: 60, reps: 5, performedAtMs: platform.now() - 2 * day });
+    const map = await store.getLastSessionsByExercise();
+    expect(map[ex.id].day).toBe('2026-07-15');
+    expect(map[ex.id].sets.map((s) => s.weightKg)).toEqual([10]);
+    expect(map[other.id].day).toBe('2026-07-13');
+  });
+
   it('day query returns every exercise trained that day, in order', async () => {
     const other = await store.addExercise('Squat');
     await store.addSet({ exerciseId: ex.id, weightKg: 10, reps: 8 });

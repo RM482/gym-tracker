@@ -326,6 +326,19 @@ export function createStore({ dbHandle, platform }) {
       return { day, sets: sets.filter((s) => s.workoutDay === day) };
     },
 
+    // Most recent session per exercise INCLUDING today (Home row summaries, §6.1).
+    async getLastSessionsByExercise() {
+      const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.getAll()), isValidSet);
+      const byEx = {};
+      for (const s of sets) {
+        const cur = byEx[s.exerciseId];
+        if (!cur || s.workoutDay > cur.day) byEx[s.exerciseId] = { day: s.workoutDay, sets: [s] };
+        else if (s.workoutDay === cur.day) cur.sets.push(s);
+      }
+      for (const v of Object.values(byEx)) v.sets.sort(compareSets);
+      return byEx;
+    },
+
     async getDaySets(day) {
       const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.index('byDay').getAll(day)), isValidSet);
       return sets.sort(compareSets);
