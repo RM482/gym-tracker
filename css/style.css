@@ -351,3 +351,8 @@ button {
 .day-nav .icon-btn:disabled { opacity: 0.3; cursor: default; }
 .day-summary { color: var(--text-soft); text-align: center; margin: 0 0 0.75rem; }
 .day-card h2 { font-size: 1.05rem; }
+
+/* Settings */
+.settings-card p { color: var(--text-soft); margin-bottom: 0.65rem; line-height: 1.4; }
+.settings-card .privacy-note { font-size: 0.85rem; }
+.settings-card .btn-primary { margin-top: 0.75rem; }

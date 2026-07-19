@@ -2,6 +2,22 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-19 — Owner addition: analysis-ready data export ✅
+
+**Completed**
+- Settings now offers “Export for AI analysis”: readable, pretty-printed JSON with a schema guide, summary, exercise catalogue, and chronological per-set rows containing names, archive state, local/UTC timestamps, workout day, kg, reps, and bodyweight meaning.
+- Export is prepared before the tap so iPhone Safari retains permission to open its share sheet; browsers without file sharing use a dated JSON download fallback.
+- Privacy remains local-first: the app performs no upload and clearly explains that the file leaves the device only through the owner’s chosen Files/share destination.
+- This is deliberately separate from the strict restorable backup/import format still due in Phase 7.
+
+**Tests run** (2026-07-19): Vitest 51/51 (new analysis-export suite: 2); Playwright 8/8 browser tests including file download and JSON-content verification; `check:precache` OK (22 files).
+
+**Known issues**: the native iPhone share sheet needs the planned real-device pass; automated WebKit verifies the standards-based download fallback and file contents.
+
+**Next step**: Phase 6 — dashboard metrics, PRs, consistency, and inline SVG progress charts.
+
+**Departure from plan**: owner-requested analysis format added; the relevant export surface was pulled forward ahead of Phase 7 without changing backup/restore semantics.
+
 ## 2026-07-19 — Phase 5: history, editing and day overview ✅
 
 **Completed**

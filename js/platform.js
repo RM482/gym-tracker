@@ -1,5 +1,6 @@
 // platform.js — thin adapters around browser APIs (plan §5 A11).
-// Public API: now(), uuid(), tzOffsetMin(), requestPersist(), canShare(), shareFile(file)
+// Public API: now(), uuid(), tzOffsetMin(), requestPersist(), canShare(),
+//             shareFile(file), downloadFile(file)
 // Everything the rest of the app needs from the platform goes through here so
 // tests can inject fakes. No DOM access in this module.
 
@@ -29,4 +30,16 @@ export function canShare(file) {
 
 export async function shareFile(file) {
   await navigator.share({ files: [file] });
+}
+
+export function downloadFile(file) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.name;
+  link.hidden = true;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

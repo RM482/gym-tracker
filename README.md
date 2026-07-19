@@ -35,4 +35,8 @@ The service worker is skipped on localhost so edits show up immediately; append 
 
 ## Data safety
 
-Your data lives only on your phone (browser storage). Make occasional backups: Settings → **Export backup** → save to iCloud Files. Backups are plain JSON files — treat them like personal documents. Restoring: Settings → Import backup.
+Your data lives only on your phone (browser storage). The restorable backup/import workflow is scheduled for Phase 7; until then, the analysis export below provides an off-device copy of the readable workout data but is not yet a restore file. Treat exported JSON like a personal document.
+
+## Analysing your training data
+
+Settings → **Export for AI analysis** creates a readable JSON file containing exercise names and one chronological row per set, including local/UTC timestamps, workout day, weight and reps. Attach that file to an LLM when you want help reviewing trends. The app does not upload it: saving or sharing the file is always your choice. Treat it as a personal health-adjacent document.

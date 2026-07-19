@@ -17,3 +17,6 @@ Owner approved the plan and core scope with four amendments:
 - **D4 — Fitbit import (calories/duration): rejected.** Owner delegated ("don't do it if it is too much of a hassle"); it demands a developer-app registration, OAuth login, and online-only APIs — incompatible with no-login/offline/local-first. Duration ships anyway (derived from set timestamps, §11.2); calories deliberately absent rather than estimated without heart-rate data.
 
 Consequence: implementation phase gate (§18) satisfied; Phase 0 may begin.
+
+## 2026-07-19 — LLM-friendly analysis export added
+Owner requested an export suitable for later LLM analysis. Added a separate readable JSON export rather than overloading the restorable backup schema: exercises are named and each set is denormalised with local/UTC time, stored workout day, kg, reps, bodyweight meaning, archive state, and a concise schema guide. The app never uploads the file; the owner explicitly chooses a Files/share destination. Restorable backup/import remains Phase 7 and retains its stricter recovery schema.
