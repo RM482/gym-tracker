@@ -20,6 +20,19 @@ export async function render(el, params, ctx) {
   const settings = await ctx.store.getSettings();
   const exercises = await ctx.store.listExercises({ order: settings.exerciseSort });
 
+  const now = Date.now();
+  const overdue = settings.lastDataChangeAtMs
+    && (!settings.lastExportAtMs || now - settings.lastExportAtMs > 30 * 86400000)
+    && (!settings.backupBannerSnoozedAtMs || now - settings.backupBannerSnoozedAtMs > 7 * 86400000);
+  if (overdue) {
+    const banner = document.createElement('div'); banner.className = 'backup-banner';
+    const link = document.createElement('button'); link.textContent = 'Backup recommended — Export';
+    link.addEventListener('click', () => { location.hash = '#/settings'; });
+    const dismiss = document.createElement('button'); dismiss.setAttribute('aria-label', 'Dismiss backup reminder'); dismiss.textContent = '×';
+    dismiss.addEventListener('click', async () => { await ctx.store.updateSettings({ backupBannerSnoozedAtMs: Date.now() }); banner.remove(); });
+    banner.append(link, dismiss); el.appendChild(banner);
+  }
+
   if (exercises.length === 0) {
     renderEmptyState(el, ctx);
     return;

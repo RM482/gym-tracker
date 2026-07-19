@@ -385,6 +385,15 @@ export function createStore({ dbHandle, platform }) {
       });
     },
 
+    async replaceFromBackup(data) {
+      return dbHandle.run(['exercises', 'sets', 'settings'], 'readwrite', async (st) => {
+        await st.sets.clear(); await st.exercises.clear(); await st.settings.clear();
+        for (const exercise of data.exercises) await st.exercises.put(exercise);
+        for (const set of data.sets) await st.sets.put(set);
+        await st.settings.put({ ...DEFAULT_SETTINGS, ...data.settings, id: 'app' });
+      });
+    },
+
     unreadableCount() { return unreadable; },
   };
 

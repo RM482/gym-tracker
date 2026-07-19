@@ -214,6 +214,19 @@ describe('sessions and day queries', () => {
 });
 
 describe('settings and diagnostics', () => {
+  it('atomically replaces all stores from a validated backup', async () => {
+    await store.addExercise('Old');
+    const snapshot = {
+      exercises: [{ id: 'new', name: 'Restored', sortOrder: 0, archivedAtMs: null, createdAtMs: 1, updatedAtMs: 1 }],
+      sets: [{ id: 'set-new', exerciseId: 'new', weightKg: 25, reps: 6, performedAtMs: 1, tzOffsetMin: 0, workoutDay: '1970-01-01', createdAtMs: 1, updatedAtMs: 1 }],
+      settings: { id: 'app', coarseIncrementKg: 5, exerciseSort: 'manual' },
+    };
+    await store.replaceFromBackup(snapshot);
+    expect((await store.listExercises()).map((x) => x.name)).toEqual(['Restored']);
+    expect(await store.getSetsForExercise('new')).toHaveLength(1);
+    expect((await store.getSettings()).coarseIncrementKg).toBe(5);
+  });
+
   it('returns defaults, persists updates', async () => {
     const s = await store.getSettings();
     expect(s.coarseIncrementKg).toBe(2.5);

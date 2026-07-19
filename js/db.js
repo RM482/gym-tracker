@@ -95,6 +95,7 @@ function wrapStore(store) {
     getAllKeys: (query) => promisify(store.getAllKeys(query)),
     put: (value) => promisify(store.put(value)),
     delete: (key) => promisify(store.delete(key)),
+    clear: () => promisify(store.clear()),
     index: (name) => {
       const idx = store.index(name);
       return {

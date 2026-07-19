@@ -2,9 +2,9 @@
 // analysis export ships early; restorable backup/import remains Phase 7.
 
 import { header, placeholder } from './components.js';
-import { toast } from './components.js';
+import { toast, confirmSheet } from './components.js';
 import { collectAnalysisExport, analysisExportFilename } from '../analysis-export.js';
-import { collectBackup, backupFilename } from '../backup.js';
+import { collectBackup, backupFilename, validateBackup } from '../backup.js';
 import * as platform from '../platform.js';
 
 export async function render(el, params, ctx) {
@@ -64,6 +64,34 @@ export async function render(el, params, ctx) {
   });
   backupCard.append(backupTitle, backupCopy, backupButton, backupError); el.appendChild(backupCard);
 
+  const importLabel = document.createElement('label'); importLabel.className = 'btn-secondary file-button';
+  importLabel.textContent = 'Import backup';
+  const importInput = document.createElement('input'); importInput.type = 'file'; importInput.accept = 'application/json,.json'; importInput.hidden = true;
+  importLabel.appendChild(importInput); backupCard.appendChild(importLabel);
+  importInput.addEventListener('change', async () => {
+    const file = importInput.files?.[0]; if (!file) return;
+    backupError.textContent = '';
+    try {
+      if (file.size > 10 * 1024 * 1024) throw new Error('Backup is larger than 10 MB');
+      const staged = validateBackup(JSON.parse(await file.text()));
+      const unreadable = staged.unreadable.length ? ` ${staged.unreadable.length} unreadable entries will not be restored.` : '';
+      confirmSheet({
+        title: 'Replace current data?',
+        message: `Backup has ${staged.exercises.length} exercises and ${staged.sets.length} sets. This replaces everything currently on this phone.${unreadable} A safety backup will download first.`,
+        confirmLabel: 'Create safety copy and replace', danger: true,
+        async onConfirm() {
+          try {
+            const safety = new File([`${JSON.stringify(preparedBackup, null, 2)}\n`], `gym-tracker-safety-${new Date().toISOString().slice(0, 10)}.json`, { type: 'application/json' });
+            platform.downloadFile(safety);
+            await ctx.store.replaceFromBackup(staged);
+            toast('Backup restored ✓'); ctx.refresh();
+          } catch (err) { toast(`Restore failed: ${err.message}`); }
+        },
+      });
+    } catch (err) { backupError.textContent = `Couldn’t import: ${err.message}`; }
+    importInput.value = '';
+  });
+
   const exportCard = document.createElement('section');
   exportCard.className = 'card settings-card';
   const title = document.createElement('h2');
@@ -104,6 +132,12 @@ export async function render(el, params, ctx) {
   const storage = document.createElement('section'); storage.className = 'card settings-card';
   const storageTitle = document.createElement('h2'); storageTitle.textContent = 'Storage';
   const storageLine = document.createElement('p'); storageLine.textContent = `Persistent storage: ${await platform.persistenceStatus()}`;
-  storage.append(storageTitle, storageLine); el.appendChild(storage);
-  el.appendChild(placeholder('Backup import arrives in the next Phase 7 step.'));
+  const counts = document.createElement('p');
+  counts.textContent = `${preparedBackup?.exercises.length ?? 0} exercises · ${preparedBackup?.sets.length ?? 0} sets`;
+  storage.append(storageTitle, storageLine, counts);
+  if (preparedBackup?.unreadable.length) {
+    const warning = document.createElement('p'); warning.className = 'text-danger';
+    warning.textContent = `${preparedBackup.unreadable.length} unreadable entries`; storage.appendChild(warning);
+  }
+  el.appendChild(storage);
 }
