@@ -2,6 +2,23 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-19 — Phase 4: quick entry ✅
+
+**Completed**
+- Pure deterministic parser (`js/parser.js`) for the approved English/Dutch typed-or-dictated grammar: set counts, reps/weight forms, number words one–twelve / een–twaalf, bodyweight, decimal commas, inherited pre-filled/last-mentioned weights, and explicit ambiguity errors.
+- Parser is all-or-nothing, identifies failing fragments, never throws, enforces 20 sets per segment and 30 sets per submission, and runs fully offline with no AI or network calls.
+- Log-screen sentence field with iOS keyboard Done handling, keyboard-aware scroll, in-memory draft preservation across app navigation, preview chips, and one "Add N sets" confirmation.
+- Confirm uses the existing atomic `store.addSets()` transaction and shared write-pending guard; successful batches immediately appear in Today in their spoken order.
+- Service-worker cache bumped to `gt-v0.5.0` and `js/parser.js` added to the offline precache.
+
+**Tests run** (2026-07-19): Vitest 47/47 (new parser suite: 7); Playwright B1–B4 green, 5/5 browser tests (B4 covers canonical 3-set preview/save and all-or-nothing parse failure); `check:precache` OK (20 files).
+
+**Known issues**: dictation itself still needs the planned real-iPhone device check; browser automation verifies the resulting sentence flow.
+
+**Next step**: Phase 5 — History/edit/delete + Undo and the cross-exercise day overview.
+
+**Departures from plan**: none.
+
 ## 2026-07-19 — Phase 3: logging core ✅
 
 **Completed**

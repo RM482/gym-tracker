@@ -1,11 +1,17 @@
 // log.js — the logging screen, heart of the app (plan §6.2).
 // Last-time card + collapsed Earlier line, Today card, steppers with pre-fill,
 // "Save set" (saves and stays), "↻ Same as last time" with the n+1 rule.
-// Quick-entry sentence field arrives in Phase 4; editing today's sets in Phase 5.
+// Includes the Phase 4 typed/dictated quick-entry preview and batch-save flow.
+// Editing today's sets arrives in Phase 5.
 //
 // Exported for unit tests: pickRepeatSet(prevSets, todayCount).
 
 import { header, toast, formatDayLabel } from './components.js';
+import { parseQuickEntry } from '../parser.js';
+
+// Kept in module memory so a sentence survives in-app navigation, but not app
+// termination/reload, as specified in §12.
+const quickDrafts = new Map();
 
 // §6.2 rule: with n sets logged today, ↻ logs the previous session's set n+1;
 // past its end, its last set; no previous session → no button.
@@ -173,6 +179,80 @@ export async function render(el, { exerciseId }, ctx) {
     saveButtons.push(btn);
     el.appendChild(btn);
   }
+
+  // ---- Typed / dictated quick entry ----
+  const quick = document.createElement('section');
+  quick.className = 'quick-entry card';
+  const quickTitle = document.createElement('h2');
+  quickTitle.textContent = 'Add several sets';
+  const quickHint = document.createElement('p');
+  quickHint.className = 'quick-hint';
+  quickHint.textContent = 'Type or dictate a sentence, then check it before saving.';
+  const quickForm = document.createElement('form');
+  quickForm.className = 'quick-form';
+  const quickInput = document.createElement('input');
+  quickInput.type = 'text';
+  quickInput.enterKeyHint = 'done';
+  quickInput.autocomplete = 'off';
+  quickInput.setAttribute('aria-label', 'Quick entry sentence');
+  quickInput.placeholder = 'e.g. 2x8 @ 10kg, then 8 @ 9kg';
+  quickInput.value = quickDrafts.get(ex.id) ?? '';
+  const parseBtn = document.createElement('button');
+  parseBtn.type = 'submit';
+  parseBtn.className = 'quick-submit';
+  parseBtn.setAttribute('aria-label', 'Preview sets');
+  parseBtn.textContent = '➜';
+  quickForm.append(quickInput, parseBtn);
+  const quickError = document.createElement('p');
+  quickError.className = 'sheet-error';
+  quickError.setAttribute('aria-live', 'polite');
+  const preview = document.createElement('div');
+  preview.className = 'quick-preview';
+  quick.append(quickTitle, quickHint, quickForm, quickError, preview);
+  el.appendChild(quick);
+
+  quickInput.addEventListener('input', () => {
+    quickDrafts.set(ex.id, quickInput.value);
+    quickError.textContent = '';
+    preview.replaceChildren();
+  });
+  quickInput.addEventListener('focus', () => {
+    setTimeout(() => quick.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+  });
+
+  quickForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    quickDrafts.set(ex.id, quickInput.value);
+    quickError.textContent = '';
+    preview.replaceChildren();
+    const result = parseQuickEntry(quickInput.value, { fallbackWeightKg: readWeight() });
+    if (result.errors.length) {
+      quickError.textContent = result.errors
+        .map((item) => `${item.fragment ? `“${item.fragment}”: ` : ''}${item.reason}`)
+        .join(' · ');
+      return;
+    }
+
+    const chips = document.createElement('div');
+    chips.className = 'preview-chips';
+    for (const set of result.sets) {
+      const chip = document.createElement('span');
+      chip.className = 'preview-chip';
+      chip.textContent = fmtSet(set);
+      chips.appendChild(chip);
+    }
+    const confirm = document.createElement('button');
+    confirm.className = 'btn-primary';
+    confirm.textContent = `Add ${result.sets.length} set${result.sets.length === 1 ? '' : 's'}`;
+    saveButtons.push(confirm);
+    confirm.addEventListener('click', () => guard(async () => {
+      await ctx.store.addSets(ex.id, result.sets);
+      quickDrafts.delete(ex.id);
+      toast(`Saved ✓ · ${result.sets.length} set${result.sets.length === 1 ? '' : 's'}`);
+      ctx.refresh();
+    }));
+    preview.append(chips, confirm);
+  });
 }
 
 function valueInput(mode, value, label) {

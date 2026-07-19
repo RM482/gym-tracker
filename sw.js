@@ -2,7 +2,7 @@
 // CACHE_VERSION must be bumped in the same commit as any app change
 // (see docs/MAINTENANCE.md). scripts/check-precache.mjs keeps PRECACHE honest.
 
-const CACHE_VERSION = 'gt-v0.4.0';
+const CACHE_VERSION = 'gt-v0.5.0';
 
 const PRECACHE = [
   'index.html',
@@ -13,6 +13,7 @@ const PRECACHE = [
   'js/db.js',
   'js/store.js',
   'js/stats.js',
+  'js/parser.js',
   'js/ui/components.js',
   'js/ui/home.js',
   'js/ui/log.js',

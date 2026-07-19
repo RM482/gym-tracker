@@ -2,7 +2,7 @@
 
 A very fast, local-first gym logging app for one user's iPhone, built as an installable web app (PWA). Log a set in a few taps, instantly see what you lifted last time, and watch progress on a simple dashboard. Works fully offline; all data stays on the phone.
 
-**Status: in development — Phase 0 (scaffold).** See `docs/PROGRESS.md`.
+**Status: in development — Phase 4 complete (quick sentence entry).** See `docs/PROGRESS.md`.
 
 ## Documentation
 
