@@ -18,10 +18,16 @@ export function tzOffsetMin(atMs = Date.now()) {
 }
 
 // Best-effort persistent storage (plan §9). Returns "granted" | "denied" | "unsupported".
+let persistRequest = null;
 export async function requestPersist() {
   if (!navigator.storage || !navigator.storage.persist) return 'unsupported';
-  const granted = await navigator.storage.persist();
-  return granted ? 'granted' : 'denied';
+  persistRequest ??= navigator.storage.persist().then((granted) => granted ? 'granted' : 'denied');
+  return persistRequest;
+}
+
+export async function persistenceStatus() {
+  if (!navigator.storage || !navigator.storage.persisted) return 'unsupported';
+  return (await navigator.storage.persisted()) ? 'granted' : 'not granted';
 }
 
 export function canShare(file) {

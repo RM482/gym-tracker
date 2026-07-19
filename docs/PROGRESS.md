@@ -2,6 +2,24 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-19 — Phase 7 foundation: settings + backup export ✅
+
+**Completed**
+- Settings controls for coarse weight increment and recent/manual exercise ordering, persisted through the existing validated settings store.
+- Best-effort durable-storage request begins after the first successful manual, repeat, or batch save; Settings reports the browser’s current persistence status without overstating the guarantee.
+- Canonical `gym-tracker-backup-YYYY-MM-DD.json` export with app marker, DB schema version, timestamp, exercises, sets, settings, and separately preserved unreadable raw records.
+- Backup preparation happens before the export tap so iPhone Safari retains share-sheet activation; download fallback remains available. Successful export records `lastExportAtMs`.
+- Quick-entry grammar now accepts natural dictation such as “3 sets of 8, with 10 kg” and Dutch “drie sets van acht, met tien kilo”.
+- Service-worker cache bumped to `gt-v0.9.0`; `backup.js` added to the offline precache.
+
+**Tests run** (2026-07-19): Vitest 56/56; Playwright 9/9 browser tests including canonical backup content/download and persisted coarse-increment settings; `check:precache` OK (24 files).
+
+**Known issues**: backup import/replace is not yet exposed; that is the next Phase 7 step. Native iPhone share and persistence status remain device-gate checks.
+
+**Next step**: Phase 7 import — staged validation, preview, automatic safety copy, and atomic replacement.
+
+**Departures from plan**: Phase 7 is checkpointed in two data-safety slices so backup generation is verified before implementing the destructive replace path.
+
 ## 2026-07-19 — Phase 6: progress dashboard ✅
 
 **Completed**

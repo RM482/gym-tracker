@@ -2,7 +2,7 @@
 
 A very fast, local-first gym logging app for one user's iPhone, built as an installable web app (PWA). Log a set in a few taps, instantly see what you lifted last time, and watch progress on a simple dashboard. Works fully offline; all data stays on the phone.
 
-**Status: in development — Phase 6 complete (progress dashboard).** See `docs/PROGRESS.md`.
+**Status: in development — Phase 7 data-safety/settings work in progress.** See `docs/PROGRESS.md`.
 
 ## Documentation
 
@@ -35,7 +35,7 @@ The service worker is skipped on localhost so edits show up immediately; append 
 
 ## Data safety
 
-Your data lives only on your phone (browser storage). The restorable backup/import workflow is scheduled for Phase 7; until then, the analysis export below provides an off-device copy of the readable workout data but is not yet a restore file. Treat exported JSON like a personal document.
+Your data lives only on your phone (browser storage). Settings → **Export backup** now creates a complete restorable-format copy; the matching validated import workflow is the next Phase 7 step. Treat exported JSON like a personal document.
 
 ## Analysing your training data
 

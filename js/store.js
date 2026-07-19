@@ -45,12 +45,12 @@ export function validateReps(r) {
   }
 }
 
-function isValidExercise(x) {
+export function isValidExercise(x) {
   return x && typeof x.id === 'string' && typeof x.name === 'string'
     && Number.isInteger(x.sortOrder) && typeof x.createdAtMs === 'number';
 }
 
-function isValidSet(s) {
+export function isValidSet(s) {
   return s && typeof s.id === 'string' && typeof s.exerciseId === 'string'
     && typeof s.weightKg === 'number' && Number.isInteger(s.reps)
     && typeof s.performedAtMs === 'number' && typeof s.tzOffsetMin === 'number'
@@ -361,6 +361,27 @@ export function createStore({ dbHandle, platform }) {
         const next = { ...current, ...patch, id: 'app' };
         await st.settings.put(next);
         return next;
+      });
+    },
+
+    async snapshotForBackup() {
+      return dbHandle.run(['exercises', 'sets', 'settings'], 'readonly', async (st) => {
+        const rawExercises = await st.exercises.getAll();
+        const rawSets = await st.sets.getAll();
+        const rawSettings = await st.settings.get('app');
+        const unreadable = [];
+        const exercises = rawExercises.filter((record) => {
+          const valid = isValidExercise(record);
+          if (!valid) unreadable.push({ store: 'exercises', record });
+          return valid;
+        });
+        const sets = rawSets.filter((record) => {
+          const valid = isValidSet(record);
+          if (!valid) unreadable.push({ store: 'sets', record });
+          return valid;
+        });
+        if (rawSettings && typeof rawSettings !== 'object') unreadable.push({ store: 'settings', record: rawSettings });
+        return { exercises, sets, settings: { ...DEFAULT_SETTINGS, ...(rawSettings && typeof rawSettings === 'object' ? rawSettings : {}) }, unreadable };
       });
     },
 

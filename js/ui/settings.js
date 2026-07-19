@@ -4,6 +4,7 @@
 import { header, placeholder } from './components.js';
 import { toast } from './components.js';
 import { collectAnalysisExport, analysisExportFilename } from '../analysis-export.js';
+import { collectBackup, backupFilename } from '../backup.js';
 import * as platform from '../platform.js';
 
 export async function render(el, params, ctx) {
@@ -20,6 +21,48 @@ export async function render(el, params, ctx) {
   } catch (err) {
     preparationError = err;
   }
+  let preparedBackup = null;
+  try { preparedBackup = await collectBackup(ctx.store, preparedAtMs); } catch { /* shown if tapped */ }
+
+  const settings = await ctx.store.getSettings();
+  const preferences = document.createElement('section');
+  preferences.className = 'card settings-card';
+  const prefTitle = document.createElement('h2'); prefTitle.textContent = 'Logging preferences';
+  const makeSelect = (labelText, options, value, onChange) => {
+    const label = document.createElement('label'); label.className = 'settings-field';
+    const span = document.createElement('span'); span.textContent = labelText;
+    const select = document.createElement('select');
+    for (const [optionValue, optionLabel] of options) {
+      const option = document.createElement('option'); option.value = optionValue; option.textContent = optionLabel;
+      option.selected = String(value) === optionValue; select.appendChild(option);
+    }
+    select.addEventListener('change', () => onChange(select.value));
+    label.append(span, select); return label;
+  };
+  preferences.append(
+    prefTitle,
+    makeSelect('Coarse weight increment', [['1', '1 kg'], ['2', '2 kg'], ['2.5', '2.5 kg'], ['5', '5 kg']], settings.coarseIncrementKg,
+      (value) => ctx.store.updateSettings({ coarseIncrementKg: Number(value) })),
+    makeSelect('Exercise order', [['recent', 'Most recent'], ['manual', 'My order']], settings.exerciseSort,
+      (value) => ctx.store.updateSettings({ exerciseSort: value })),
+  );
+  el.appendChild(preferences);
+
+  const backupCard = document.createElement('section'); backupCard.className = 'card settings-card';
+  const backupTitle = document.createElement('h2'); backupTitle.textContent = 'Restorable backup';
+  const backupCopy = document.createElement('p'); backupCopy.textContent = 'Save a complete backup for restoring this app on this or a new phone.';
+  const backupButton = document.createElement('button'); backupButton.className = 'btn-primary'; backupButton.textContent = 'Export backup';
+  const backupError = document.createElement('p'); backupError.className = 'sheet-error';
+  backupButton.disabled = !preparedBackup;
+  backupButton.addEventListener('click', async () => {
+    try {
+      const file = new File([`${JSON.stringify(preparedBackup, null, 2)}\n`], backupFilename(preparedAtMs), { type: 'application/json' });
+      if (platform.canShare(file)) await platform.shareFile(file); else platform.downloadFile(file);
+      await ctx.store.updateSettings({ lastExportAtMs: preparedAtMs });
+      toast('Backup ready ✓');
+    } catch (err) { if (err?.name !== 'AbortError') backupError.textContent = `Couldn’t export: ${err.message}`; }
+  });
+  backupCard.append(backupTitle, backupCopy, backupButton, backupError); el.appendChild(backupCard);
 
   const exportCard = document.createElement('section');
   exportCard.className = 'card settings-card';
@@ -58,5 +101,9 @@ export async function render(el, params, ctx) {
   });
   exportCard.append(title, copy, privacy, button, error);
   el.appendChild(exportCard);
-  el.appendChild(placeholder('Backup restore and the remaining preferences arrive in Phase 7.'));
+  const storage = document.createElement('section'); storage.className = 'card settings-card';
+  const storageTitle = document.createElement('h2'); storageTitle.textContent = 'Storage';
+  const storageLine = document.createElement('p'); storageLine.textContent = `Persistent storage: ${await platform.persistenceStatus()}`;
+  storage.append(storageTitle, storageLine); el.appendChild(storage);
+  el.appendChild(placeholder('Backup import arrives in the next Phase 7 step.'));
 }

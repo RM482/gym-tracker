@@ -9,6 +9,7 @@
 import { header, toast, formatDayLabel } from './components.js';
 import { parseQuickEntry } from '../parser.js';
 import { openSetEditor } from './set-editor.js';
+import * as platform from '../platform.js';
 
 // Kept in module memory so a sentence survives in-app navigation, but not app
 // termination/reload, as specified in §12.
@@ -163,6 +164,7 @@ export async function render(el, { exerciseId }, ctx) {
     if (!Number.isFinite(w)) throw new Error('Enter a weight (0 is fine for bodyweight)');
     if (!Number.isFinite(r)) throw new Error('Enter the reps');
     await ctx.store.addSet({ exerciseId: ex.id, weightKg: w, reps: r });
+    platform.requestPersist().catch(() => {});
     toast(`Saved ✓ · set ${todaySets.length + 1}`);
     ctx.refresh();
   }));
@@ -176,6 +178,7 @@ export async function render(el, { exerciseId }, ctx) {
     btn.textContent = `↻ Same as last time — ${fmtSet(repeat)}`;
     btn.addEventListener('click', () => guard(async () => {
       await ctx.store.addSet({ exerciseId: ex.id, weightKg: repeat.weightKg, reps: repeat.reps });
+      platform.requestPersist().catch(() => {});
       toast(`Saved ✓ · set ${todaySets.length + 1}`);
       ctx.refresh();
     }));
@@ -250,6 +253,7 @@ export async function render(el, { exerciseId }, ctx) {
     saveButtons.push(confirm);
     confirm.addEventListener('click', () => guard(async () => {
       await ctx.store.addSets(ex.id, result.sets);
+      platform.requestPersist().catch(() => {});
       quickDrafts.delete(ex.id);
       toast(`Saved ✓ · ${result.sets.length} set${result.sets.length === 1 ? '' : 's'}`);
       ctx.refresh();

@@ -12,6 +12,13 @@ describe('quick-entry parser', () => {
     ]);
   });
 
+  it('accepts natural dictated “with” / “met” phrasing', () => {
+    expect(parseQuickEntry('3 sets of 8, with 10 kg').sets).toEqual([
+      { weightKg: 10, reps: 8 }, { weightKg: 10, reps: 8 }, { weightKg: 10, reps: 8 },
+    ]);
+    expect(parseQuickEntry('drie sets van acht, met tien kilo').sets).toHaveLength(3);
+  });
+
   it('supports symbolic, unit-first, bodyweight, decimal-comma and Dutch forms', () => {
     expect(parseQuickEntry('2x8 @ 22,5kg; 20kg x 6; bw x 12').sets).toEqual([
       { weightKg: 22.5, reps: 8 }, { weightKg: 22.5, reps: 8 },

@@ -10,7 +10,7 @@ const NUMBER_WORDS = new Map([
 ]);
 
 const WEIGHT_UNIT = '(?:kg|kilo|kilos)';
-const AT = '(?:@|at|op)';
+const AT = '(?:@|at|with|op|met)';
 const REPS = '(?:reps?|keer)';
 
 function replaceNumberWords(value) {
@@ -89,7 +89,10 @@ export function parseQuickEntry(input, { fallbackWeightKg = null } = {}) {
 
   // Decimal commas are protected first. A separator comma followed by a space
   // remains a separator: "22,5" is decimal, while "10, 1x8" is two fragments.
-  const normalized = input.replace(/(\d),(?=\d)/g, '$1.');
+  const normalized = input.replace(/(\d),(?=\d)/g, '$1.')
+    // Natural dictation often inserts a comma before “with” / “met”; it is
+    // part of the same set description, not a new segment.
+    .replace(/,\s*(?=(?:with|met)\b)/gi, ' ');
   const fragments = normalized.split(/\s*(?:[,;\n]|\bthen\b|\band\b|\ben\b|\bdaarna\b)\s*/i)
     .map((value) => value.trim())
     .filter(Boolean);
