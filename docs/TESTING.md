@@ -1,6 +1,6 @@
 # Testing
 
-Test levels per plan §17.0: Vitest unit suites (logic), Playwright WebKit smoke B1–B8 (wiring), manual device scripts (Safari/PWA truth). This file records device-script runs and the measured E2E tap counts per release.
+Test levels per plan §17.0: Vitest unit suites (logic), phone-sized Playwright checks (WebKit for iPhone wiring; Chromium for reliable automated offline emulation), and manual device scripts (Safari/PWA truth). This file records device-script runs and the measured E2E tap counts per release.
 
 ## Tap-counting convention (plan §7)
 
@@ -24,4 +24,4 @@ Run per release once deployed: Add to Home Screen; standalone launch; airplane-m
 
 | Date | App version | Result | Notes |
 |------|-------------|--------|-------|
-| — | — | — | first run due at Phase 8 |
+| — | gt-v0.11.0 | Pending owner run | Automated offline reload, stale-tab lockout, dark mode, 200% text layout and modal focus pass; native install/dictation/share/VoiceOver/update notice still require the iPhone. |

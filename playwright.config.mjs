@@ -10,6 +10,9 @@ export default defineConfig({
   },
   use: { baseURL: 'http://localhost:4173' },
   projects: [
-    { name: 'webkit', use: { ...devices['iPhone 13'] } },
+    { name: 'webkit', grepInvert: /@chromium/, use: { ...devices['iPhone 13'] } },
+    // Chromium has reliable service-worker + offline emulation. WebKit's
+    // inspector currently aborts an offline navigation before its worker runs.
+    { name: 'chromium-offline', grep: /@chromium/, use: { ...devices['Pixel 7'] } },
   ],
 });

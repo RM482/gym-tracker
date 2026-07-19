@@ -24,6 +24,22 @@ Add the file, add its path to `PRECACHE` in `sw.js`, bump `CACHE_VERSION`. `npm 
 
 Install the PWA → Settings → Import backup → pick the latest `gym-tracker-backup-*.json` from iCloud Files.
 
+## Recover when the app cannot open its data
+
+1. Tap **Try again** and close any other Gym Tracker tabs if the app asks you to.
+2. A destructive reset is deliberately hidden until a non-blocking open error repeats.
+3. Before resetting, locate the newest `gym-tracker-backup-*.json` in Files.
+4. Expand **Still can’t open it?**, type the exact confirmation phrase, and reset.
+5. After restart, open Settings → **Import backup**.
+
+Reset deletes only this browser's Gym Tracker database. It cannot recover data that was never exported, so it is a last resort.
+
+## Verify an update on iPhone
+
+1. Keep the installed app open on the old release while a new cache version is deployed.
+2. Bring the app online and reopen it. Tap **Restart** in the update notice.
+3. Confirm the app reloads, existing exercises and sets remain, then switch to airplane mode and reload once more.
+
 ## Roll back a bad deploy
 
 `git revert` the bad commit (keeps history), bump `CACHE_VERSION` again, push.

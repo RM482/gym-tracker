@@ -2,7 +2,7 @@
 
 A very fast, local-first gym logging app for one user's iPhone, built as an installable web app (PWA). Log a set in a few taps, instantly see what you lifted last time, and watch progress on a simple dashboard. Works fully offline; all data stays on the phone.
 
-**Status: in development — Phase 7 complete (settings, backup and restore).** See `docs/PROGRESS.md`.
+**Status: in development — Phase 8 implementation complete; final iPhone checks pending.** See `docs/PROGRESS.md`.
 
 ## Documentation
 
@@ -20,12 +20,14 @@ The app itself has **zero dependencies and no build step** — plain HTML/CSS/JS
 ```bash
 npm install            # once, dev tools only
 npm test               # unit tests (Vitest)
-npm run test:browser   # browser smoke tests (Playwright WebKit; first run: npx playwright install webkit)
+npm run test:browser   # phone-sized browser tests (WebKit + one Chromium offline check)
 npm run check:precache # verifies sw.js PRECACHE matches the files on disk
 npm run serve          # local server at http://localhost:4173
 ```
 
 The service worker is skipped on localhost so edits show up immediately; append `?sw=on` to test offline behaviour locally.
+
+Deployed updates install safely in the background. When a new version is ready, the app shows **Update available → Restart**; existing data remains in the phone's local database.
 
 ## Install on iPhone (once deployed)
 

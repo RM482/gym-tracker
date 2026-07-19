@@ -110,6 +110,9 @@ function addButton(ctx) {
   btn.className = 'btn-secondary';
   btn.textContent = '＋ Add exercise';
   btn.addEventListener('click', () => {
+    // Mobile Safari does not consistently focus tapped buttons. Establish the
+    // return point explicitly so the modal can restore keyboard/VoiceOver focus.
+    btn.focus();
     promptSheet({
       title: 'New exercise',
       label: 'Exercise name',

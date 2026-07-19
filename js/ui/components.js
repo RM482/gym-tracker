@@ -63,22 +63,40 @@ export function toast(message, { durationMs = 4000, actionLabel = null, onAction
 // ---------- bottom sheets ----------
 
 export function sheet({ title, build }) {
+  const returnFocus = document.activeElement;
   const overlay = document.createElement('div');
   overlay.className = 'sheet-overlay';
   const card = document.createElement('div');
   card.className = 'sheet';
   card.setAttribute('role', 'dialog');
   card.setAttribute('aria-label', title);
+  card.setAttribute('aria-modal', 'true');
   if (title) {
     const h = document.createElement('h2');
     h.textContent = title;
     card.appendChild(h);
   }
-  const close = () => overlay.remove();
+  const close = () => {
+    document.removeEventListener('keydown', onKeydown);
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+  const onKeydown = (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); close(); return; }
+    if (event.key !== 'Tab') return;
+    const focusable = [...card.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])')];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  };
+  document.addEventListener('keydown', onKeydown);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   build(card, close);
   overlay.appendChild(card);
   document.body.appendChild(overlay);
+  setTimeout(() => card.querySelector('input, select, button')?.focus(), 0);
   return close;
 }
 

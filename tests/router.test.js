@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseRoute } from '../js/app.js';
+import { parseRoute, canResetData, RESET_PHRASE } from '../js/app.js';
 
 describe('parseRoute', () => {
   it('maps the empty/base hash to home', () => {
@@ -23,5 +23,14 @@ describe('parseRoute', () => {
     expect(parseRoute('#/nope')).toBeNull();
     expect(parseRoute('#/day/19-07-2026')).toBeNull();
     expect(parseRoute('#/log/')).toBeNull();
+  });
+});
+
+describe('recovery confirmation', () => {
+  it('requires the exact destructive reset phrase', () => {
+    expect(canResetData(RESET_PHRASE)).toBe(true);
+    expect(canResetData(` ${RESET_PHRASE} `)).toBe(true);
+    expect(canResetData('reset my data')).toBe(false);
+    expect(canResetData('RESET MY DATA NOW')).toBe(false);
   });
 });

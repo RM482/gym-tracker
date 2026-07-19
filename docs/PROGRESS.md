@@ -2,6 +2,25 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-19 — Phase 8: offline resilience and polish (implementation complete; iPhone gate pending)
+
+**Completed**
+- Versioned service-worker update flow: a waiting release shows **Update available — Restart**, activates only on request, then reloads once under the new worker.
+- Focus/visibility refresh reloads data changed in another tab. A database version change immediately closes the stale connection and keeps a blocking reload screen authoritative even over an in-flight render.
+- B6 automated offline reload now runs under reliable Chromium network emulation; B7 proves a synthetic database upgrade blocks the stale tab and removes its logging controls.
+- Plain-language database recovery distinguishes a tab-blocked upgrade from other failures. Destructive reset is only revealed after repeated failures, first instructs the owner to locate a backup, and requires typing `RESET MY DATA` exactly.
+- Accessibility polish adds strong keyboard focus indicators, modal focus containment, Escape close, focus restoration, a focused update screen, reduced-motion support, and large-text header wrapping.
+- Automated polish coverage verifies system dark mode, 200% text without horizontal overflow, and keyboard-modal behaviour on an iPhone-sized WebKit viewport.
+- Service-worker cache advanced to `gt-v0.11.0`; README, testing and maintenance guidance updated.
+
+**Tests run** (2026-07-19): Vitest 59/59; Playwright 13/13 phone-browser tests; `check:precache` OK (24 files).
+
+**Known issues / device gate**: Add to Home Screen, actual iPhone airplane-mode logging, dictation, Files/share sheet, force-quit persistence, update notice on a real deploy, CSP inspection and VoiceOver walkthrough require the owner’s phone. Automated equivalents are green where browser automation can truthfully cover them.
+
+**Next step**: deploy `gt-v0.11.0`, run the short iPhone device script, then enter Phase 9 acceptance measurement.
+
+**Departures from plan**: B6 uses Chromium because Playwright WebKit aborts service-worker navigations when its offline inspector switch is enabled; all other phone wiring remains WebKit-tested.
+
 ## 2026-07-19 — Phase 7: settings, backup and restore ✅
 
 **Completed**
