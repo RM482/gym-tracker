@@ -2,6 +2,24 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-19 — Phase 3: logging core ✅
+
+**Completed**
+- Log screen (§6.2): Last-time card with relative date (adds "· N days ago" beyond a week), collapsed Earlier line (2 prior sessions) linking to History, Today card with per-set times.
+- Entry controls: weight steppers `[−coarse][−0.5][value][+0.5][+coarse]` (coarse from settings) + reps `[−1][value][+1]`; decimal-comma input accepted; centre values open the right iOS keypads.
+- Pre-fill rules: today's last set → else previous session's *first* set → else empty weight + reps 8 (first-time state).
+- "Save set" saves and stays with values retained; "↻ Same as last time — 10 kg × 8" implements the n+1/last-set rule with the pending values always visible in the label; single shared write-pending guard across all save paths (§12 — no value-based duplicate prompts).
+- Stale exercise links (deleted/archived) redirect Home with a toast (§12).
+- Store: `getRecentSessions(exerciseId, limit)`; `getPreviousSession` now delegates to it.
+
+**Tests run** (2026-07-19): Vitest 40/40 (new: ↻ n+1 worked examples from §6.2, bodyweight formatting); Playwright B1–B3 green (B3: decimal-comma entry, stepper, save-and-stay, reload persistence, Home summary); `check:precache` OK.
+
+**Known issues**: none. Tap-count check (browser estimate): repeat flow = 1 (exercise) + 3 (↻ ×3) = 4 taps, matching §7.
+
+**Next step**: Phase 4 — quick-entry parser (test-first) + sentence input UI.
+
+**Departures from plan**: none.
+
 ## 2026-07-19 — Phase 2: exercise management ✅
 
 **Completed**

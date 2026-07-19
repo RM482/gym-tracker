@@ -11,7 +11,6 @@ test('B1: loads and navigates every route', async ({ page }) => {
     ['#/manage', 'Manage exercises'],
     ['#/settings', 'Settings'],
     ['#/day/2026-07-19', 'Day overview'],
-    ['#/log/some-id', 'Log'],
     ['#/history/some-id', 'History'],
   ];
   for (const [hash, title] of routes) {
@@ -21,6 +20,9 @@ test('B1: loads and navigates every route', async ({ page }) => {
     await expect(page.locator('h1')).toHaveText('Gym Tracker');
   }
 
+  // Unknown routes and stale exercise links redirect Home (plan §12)
   await page.goto('/#/nonsense');
+  await expect(page.locator('h1')).toHaveText('Gym Tracker');
+  await page.goto('/#/log/deleted-exercise-id');
   await expect(page.locator('h1')).toHaveText('Gym Tracker');
 });

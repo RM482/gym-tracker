@@ -318,12 +318,16 @@ export function createStore({ dbHandle, platform }) {
 
     // "Previous session" = most recent workout day strictly before today's (§6.2).
     async getPreviousSession(exerciseId) {
+      const sessions = await this.getRecentSessions(exerciseId, 1);
+      return sessions[0] ?? null;
+    },
+
+    // Up to `limit` sessions strictly before today, most recent first (§6.2 Earlier line).
+    async getRecentSessions(exerciseId, limit = 3) {
       const sets = await this.getSetsForExercise(exerciseId);
       const today = this.getTodayDay();
-      const days = [...new Set(sets.map((s) => s.workoutDay))].filter((d) => d < today).sort();
-      if (days.length === 0) return null;
-      const day = days[days.length - 1];
-      return { day, sets: sets.filter((s) => s.workoutDay === day) };
+      const days = [...new Set(sets.map((s) => s.workoutDay))].filter((d) => d < today).sort().reverse().slice(0, limit);
+      return days.map((day) => ({ day, sets: sets.filter((s) => s.workoutDay === day) }));
     },
 
     // Most recent session per exercise INCLUDING today (Home row summaries, §6.1).

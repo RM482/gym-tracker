@@ -245,3 +245,43 @@ button {
   letter-spacing: 0.03em;
   margin: 1rem 0 0.5rem;
 }
+
+/* Logging screen */
+.card h2 { font-size: 1rem; margin-bottom: 0.4rem; }
+.sets-line { font-size: 1.05rem; font-variant-numeric: tabular-nums; margin: 0.15rem 0; }
+.earlier-line {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0;
+}
+.stepper-wrap { margin-bottom: 0.75rem; }
+.stepper-label { display: block; color: var(--text-soft); font-size: 0.85rem; margin-bottom: 0.25rem; }
+.stepper-row { display: flex; gap: 0.4rem; }
+.stepper-btn {
+  flex: 1;
+  min-height: 3.25rem;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.value-input {
+  flex: 1.2;
+  min-width: 4.5rem;
+  min-height: 3.25rem;
+  text-align: center;
+  font: inherit;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+#app > .btn-primary { margin: 0.5rem 0; }
+#app > .btn-secondary { margin-bottom: 0.5rem; }
