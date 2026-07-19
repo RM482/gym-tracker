@@ -1,0 +1,27 @@
+import { describe, it, expect } from 'vitest';
+import { parseRoute } from '../js/app.js';
+
+describe('parseRoute', () => {
+  it('maps the empty/base hash to home', () => {
+    expect(parseRoute('')).toEqual({ screen: 'home', params: {} });
+    expect(parseRoute('#/')).toEqual({ screen: 'home', params: {} });
+  });
+
+  it('parses parameterised routes', () => {
+    expect(parseRoute('#/log/abc-123')).toEqual({ screen: 'log', params: { exerciseId: 'abc-123' } });
+    expect(parseRoute('#/history/abc-123')).toEqual({ screen: 'history', params: { exerciseId: 'abc-123' } });
+    expect(parseRoute('#/day/2026-07-19')).toEqual({ screen: 'day', params: { date: '2026-07-19' } });
+  });
+
+  it('parses static routes', () => {
+    for (const s of ['dashboard', 'manage', 'settings']) {
+      expect(parseRoute(`#/${s}`)).toEqual({ screen: s, params: {} });
+    }
+  });
+
+  it('rejects unknown or malformed routes', () => {
+    expect(parseRoute('#/nope')).toBeNull();
+    expect(parseRoute('#/day/19-07-2026')).toBeNull();
+    expect(parseRoute('#/log/')).toBeNull();
+  });
+});

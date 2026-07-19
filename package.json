@@ -1,0 +1,19 @@
+{
+  "name": "gym-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first gym progress tracker PWA. No runtime dependencies; npm is used for tests only.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:browser": "playwright test",
+    "check:precache": "node scripts/check-precache.mjs",
+    "serve": "python3 -m http.server 4173"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.0",
+    "fake-indexeddb": "^6.0.0",
+    "vitest": "^2.0.0"
+  }
+}
