@@ -2,6 +2,23 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-21 — Change set 1, slices 1–2: duplicate-list bug + zoom on tap ✅
+
+**Completed**
+- **Duplicate exercise list fixed (owner-reported).** Root cause: `render()` cleared `#app` at the start and only checked whether it had been superseded *before* the screen's async data loads, so two overlapping renders (returning to the app fires `focus` and `visibilitychange` together) each cleared once and then interleaved their appends. Reproduced deterministically with a macrotask stagger — one header, two stacked lists.
+- Screens now render into a **detached container** and commit atomically via `replaceChildren` only when `shouldCommitRender()` holds: still the newest render, no blocking update pending, and the route unchanged. The live screen is never cleared until a replacement is ready, so a superseded render drops its work instead of painting a second copy. Child *nodes* are moved (not a wrapper element) because `#app > .btn-*` are direct-child selectors.
+- `focus`/`visibilitychange` are coalesced into one scheduled refresh; `hashchange` stays immediate. Side benefit: no blank-screen flash between screens.
+- **Zoom on tap fixed (D5).** Two independent iOS causes addressed: `touch-action: manipulation` on interactive surfaces removes double-tap-to-zoom, and every editable control now has a `max(1rem, 16px)` floor — rules using `font: inherit` inside small labels (set editor 0.85rem, settings 0.9rem, recovery input 0.9rem) were computing 13.6–14.4px and triggering iOS focus zoom. Deliberate pinch-zoom is preserved (plan §13).
+- Test-rot fixed: B1 hardcoded `#/day/2026-07-19` and asserted it renders as "Today", which silently expired the next day; it now derives today's workout day from the app. Ambiguous `getByRole('button', {name:'Back'})` locators (substring-matched "**Back**up recommended — Export") replaced with exact `aria-label` selectors — surfaced because the screen no longer flashes blank.
+
+**Tests run** (2026-07-21): Vitest 65/65 (new: `routeKey`, 5 `shouldCommitRender` cases); Playwright 17/17 including new B9 render-race regressions (staggered + same-tick event bursts, rapid navigation) and two zoom specs asserting the 16px floor, `touch-action`, and the absence of a viewport zoom lock; `check:precache` OK (24 files). Service-worker cache `gt-v0.12.0`.
+
+**Known issues**: none from these slices. Observation for the owner (not changed): the Home "Backup recommended" banner appears as soon as any data changes if you have *never* exported, rather than after 30 days as plan §6.1 describes — so it may be showing permanently.
+
+**Next step**: data-safety prerequisites before the v2 schema — backup restore must replay record migrations (Codex F7) and `VersionError` must be handled distinctly (F9).
+
+**Departures from plan**: none.
+
 ## 2026-07-19 — Phase 8: offline resilience and polish (implementation complete; iPhone gate pending)
 
 **Completed**

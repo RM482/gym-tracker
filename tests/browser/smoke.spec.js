@@ -10,13 +10,20 @@ test('B1: loads and navigates every route', async ({ page }) => {
   await page.locator('.chip', { hasText: 'Bench press' }).click();
   await page.locator('.list-row', { hasText: 'Bench press' }).click();
   const exerciseId = page.url().split('/').at(-1);
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.locator('button[aria-label="Back"]').click();
+
+  // Derive today's workout day from the app itself: a hardcoded date silently
+  // stops being "Today" the next day and rots the test.
+  const todayDay = await page.evaluate(() => {
+    const shifted = new Date(Date.now() - 3 * 3600 * 1000); // 03:00 boundary (D1)
+    return new Date(shifted.getTime() - shifted.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  });
 
   const routes = [
     ['#/dashboard', 'Progress'],
     ['#/manage', 'Manage exercises'],
     ['#/settings', 'Settings'],
-    ['#/day/2026-07-19', 'Today'],
+    [`#/day/${todayDay}`, 'Today'],
     [`#/history/${exerciseId}`, 'Bench press'],
   ];
   for (const [hash, title] of routes) {

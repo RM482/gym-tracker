@@ -7,7 +7,7 @@ test('dashboard shows weight and bodyweight modes with PRs and consistency', asy
   await page.getByLabel('Weight in kilograms').fill('60');
   await page.getByLabel('Repetitions').fill('5');
   await page.getByRole('button', { name: 'Save set' }).click();
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.locator('button[aria-label="Back"]').click();
 
   await page.getByRole('button', { name: '＋ Add exercise' }).click();
   await page.getByLabel('Exercise name').fill('Pull-up');
@@ -16,7 +16,7 @@ test('dashboard shows weight and bodyweight modes with PRs and consistency', asy
   await page.getByLabel('Weight in kilograms').fill('0');
   await page.getByLabel('Repetitions').fill('12');
   await page.getByRole('button', { name: 'Save set' }).click();
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.locator('button[aria-label="Back"]').click();
   await page.getByRole('button', { name: 'Dashboard' }).click();
 
   // MRU puts Pull-up first: reps-only mode and its applicable PR.

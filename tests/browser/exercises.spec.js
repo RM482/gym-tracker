@@ -30,7 +30,7 @@ test('B2: starter chip and custom add both appear on Home; rename reflects', asy
   await page.getByRole('button', { name: 'Rename' }).click();
   await page.locator('.sheet input').fill('Chest fly');
   await page.getByRole('button', { name: 'Save' }).click();
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.locator('button[aria-label="Back"]').click();
   await expect(page.locator('.list-row', { hasText: 'Chest fly' })).toBeVisible();
   await expect(page.locator('.list-row', { hasText: 'Cable fly' })).toHaveCount(0);
 });

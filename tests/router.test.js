@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseRoute, canResetData, RESET_PHRASE } from '../js/app.js';
+import { parseRoute, canResetData, RESET_PHRASE, routeKey, shouldCommitRender } from '../js/app.js';
 
 describe('parseRoute', () => {
   it('maps the empty/base hash to home', () => {
@@ -32,5 +32,42 @@ describe('recovery confirmation', () => {
     expect(canResetData(` ${RESET_PHRASE} `)).toBe(true);
     expect(canResetData('reset my data')).toBe(false);
     expect(canResetData('RESET MY DATA NOW')).toBe(false);
+  });
+});
+
+describe('routeKey', () => {
+  it('distinguishes screens and their params', () => {
+    expect(routeKey(parseRoute('#/'))).toBe(routeKey(parseRoute('#/')));
+    expect(routeKey(parseRoute('#/log/a'))).not.toBe(routeKey(parseRoute('#/log/b')));
+    expect(routeKey(parseRoute('#/dashboard'))).not.toBe(routeKey(parseRoute('#/manage')));
+    expect(routeKey(null)).toBe('');
+  });
+});
+
+// Regression for the duplicate-Home-list bug: overlapping renders used to each
+// clear #app once and then interleave their appends, stacking 2–3 copies of the
+// list. Rendering is now detached and only commits when this predicate holds.
+describe('shouldCommitRender', () => {
+  const base = { seq: 2, currentSeq: 2, updateRequired: false, key: 'home:{}', currentKey: 'home:{}' };
+
+  it('commits the newest render for the current route', () => {
+    expect(shouldCommitRender(base)).toBe(true);
+  });
+
+  it('discards a render superseded by a newer one', () => {
+    expect(shouldCommitRender({ ...base, seq: 1, currentSeq: 3 })).toBe(false);
+  });
+
+  it('discards a render whose route changed while it was loading', () => {
+    expect(shouldCommitRender({ ...base, currentKey: 'log:{"exerciseId":"x"}' })).toBe(false);
+    expect(shouldCommitRender({ ...base, key: 'log:{"exerciseId":"a"}', currentKey: 'log:{"exerciseId":"b"}' })).toBe(false);
+  });
+
+  it('never commits over a blocking update screen', () => {
+    expect(shouldCommitRender({ ...base, updateRequired: true })).toBe(false);
+  });
+
+  it('requires every condition together', () => {
+    expect(shouldCommitRender({ ...base, seq: 1, currentSeq: 3, updateRequired: true, currentKey: 'manage:{}' })).toBe(false);
   });
 });

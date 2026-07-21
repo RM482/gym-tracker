@@ -27,6 +27,6 @@ test('B3: stepper logging persists across reload', async ({ page }) => {
   await expect(page.getByText('Today — 2 sets')).toBeVisible();
 
   // Home row now shows today's summary
-  await page.getByRole('button', { name: 'Back' }).click();
+  await page.locator('button[aria-label="Back"]').click();
   await expect(page.locator('.list-row', { hasText: 'Bench press' })).toContainText('Today · 2 sets · top 23 kg');
 });

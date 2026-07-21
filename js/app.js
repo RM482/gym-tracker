@@ -39,6 +39,20 @@ let renderSeq = 0;
 let updateRequired = false;
 let thisLoadFailureCount = null;
 
+// Identifies "which screen, with which params" so a render that finished after
+// the route moved on can be discarded rather than committed over the new screen.
+export function routeKey(route) {
+  return route ? `${route.screen}:${JSON.stringify(route.params)}` : '';
+}
+
+// A render may only commit its DOM if it is still the newest one, no blocking
+// update has arrived, and the route has not changed underneath it. Screens are
+// built detached and committed atomically, so a superseded render simply drops
+// its work instead of appending a second copy over the live screen.
+export function shouldCommitRender({ seq, currentSeq, updateRequired: blocked, key, currentKey }) {
+  return seq === currentSeq && !blocked && key === currentKey;
+}
+
 // §10 protocol: another tab upgraded the app → this page must stop and reload.
 function showUpdateOverlay() {
   updateRequired = true;
@@ -168,6 +182,7 @@ async function render() {
     return;
   }
   const seq = ++renderSeq;
+  const key = routeKey(route);
   try {
     await ensureCtx();
   } catch (err) {
@@ -175,12 +190,28 @@ async function render() {
     renderDbError(el, err, thisLoadFailureCount);
     return;
   }
-  if (seq !== renderSeq) return; // a newer navigation superseded this render
-  el.innerHTML = '';
-  await SCREENS[route.screen].render(el, route.params, ctx);
+  // Build detached. The live screen is never cleared until a render is ready to
+  // commit, so overlapping renders cannot interleave their appends into #app.
+  const container = document.createElement('div');
+  await SCREENS[route.screen].render(container, route.params, ctx);
+  if (!shouldCommitRender({
+    seq, currentSeq: renderSeq, updateRequired, key, currentKey: routeKey(parseRoute(location.hash)),
+  })) return;
+  // Move the children rather than the container itself: #app > .btn-primary and
+  // friends are direct-child selectors that a wrapper element would break.
+  el.replaceChildren(...container.childNodes);
   // A version change can arrive while a screen is awaiting data. Keep the
   // blocking reload message authoritative even if that render then completes.
   if (updateRequired) showUpdateOverlay();
+}
+
+// Returning to the app fires focus and visibilitychange together; collapse the
+// burst into one refresh. hashchange stays immediate so navigation feels instant.
+let refreshScheduled = false;
+function scheduleRefresh() {
+  if (refreshScheduled) return;
+  refreshScheduled = true;
+  setTimeout(() => { refreshScheduled = false; render(); }, 0);
 }
 
 function registerServiceWorker() {
@@ -223,8 +254,8 @@ function registerServiceWorker() {
 // Bootstrap only in a real page (unit tests import parseRoute without a DOM).
 if (typeof document !== 'undefined' && document.getElementById('app')) {
   window.addEventListener('hashchange', render);
-  window.addEventListener('focus', render);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') render(); });
+  window.addEventListener('focus', scheduleRefresh);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') scheduleRefresh(); });
   render();
   registerServiceWorker();
 }
