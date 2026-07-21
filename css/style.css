@@ -452,3 +452,13 @@ button:disabled { cursor: default; }
 
 /* Dashboard caveat where add-on sets exist (F11) */
 .addon-caveat { color: var(--text-soft); font-size: 0.85rem; margin-top: 0.4rem; }
+
+/* Available to screen readers, invisible on screen. */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

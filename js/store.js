@@ -185,7 +185,7 @@ export function createStore({ dbHandle, platform }) {
         assertNameFree(await s.exercises.getAll(), n, id);
         ex.name = n;
         ex.updatedAtMs = platform.now();
-        await s.exercises.put(ex);
+        await s.exercises.put(normalizeExercise(ex));
         await touchDataChange(s);
         return ex;
       });
@@ -199,7 +199,7 @@ export function createStore({ dbHandle, platform }) {
         if (!ex) throw new ValidationError('Exercise not found');
         ex.muscleGroup = group;
         ex.updatedAtMs = platform.now();
-        await s.exercises.put(ex);
+        await s.exercises.put(normalizeExercise(ex));
         await touchDataChange(s);
         return normalizeExercise(ex);
       });
@@ -211,7 +211,7 @@ export function createStore({ dbHandle, platform }) {
         if (!ex) throw new ValidationError('Exercise not found');
         ex.archivedAtMs = platform.now();
         ex.updatedAtMs = platform.now();
-        await s.exercises.put(ex);
+        await s.exercises.put(normalizeExercise(ex));
         await touchDataChange(s);
         return ex;
       });
@@ -227,7 +227,7 @@ export function createStore({ dbHandle, platform }) {
         ex.name = name;
         ex.archivedAtMs = null;
         ex.updatedAtMs = platform.now();
-        await s.exercises.put(ex);
+        await s.exercises.put(normalizeExercise(ex));
         await touchDataChange(s);
         return ex;
       });
@@ -266,7 +266,7 @@ export function createStore({ dbHandle, platform }) {
           if (active[k].sortOrder !== k) {
             active[k].sortOrder = k;
             active[k].updatedAtMs = platform.now();
-            await s.exercises.put(active[k]);
+            await s.exercises.put(normalizeExercise(active[k]));
           }
         }
         await touchDataChange(s);
@@ -318,7 +318,7 @@ export function createStore({ dbHandle, platform }) {
           next.workoutDay = workoutDay(next.performedAtMs, next.tzOffsetMin);
         }
         next.updatedAtMs = platform.now();
-        await s.sets.put(next);
+        await s.sets.put(normalizeSet(next));
         await touchDataChange(s);
         return next;
       });
@@ -426,7 +426,7 @@ export function createStore({ dbHandle, platform }) {
           return valid;
         });
         if (rawSettings && typeof rawSettings !== 'object') unreadable.push({ store: 'settings', record: rawSettings });
-        return { exercises, sets, settings: { ...DEFAULT_SETTINGS, ...(rawSettings && typeof rawSettings === 'object' ? rawSettings : {}) }, unreadable };
+        return { exercises: exercises.map(normalizeExercise), sets: sets.map(normalizeSet), settings: { ...DEFAULT_SETTINGS, ...(rawSettings && typeof rawSettings === 'object' ? rawSettings : {}) }, unreadable };
       });
     },
 

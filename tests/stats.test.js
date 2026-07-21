@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   workoutDay, compareSets, dayDurationMs, groupDaySets, epley,
   exerciseProgress, filterSetsByPeriod, consistencyWorkouts,
-  topEffort, plateauStreak, plateauNudge,
+  topEffort, plateauStreak, plateauNudge, beatsBaseline,
 } from '../js/stats.js';
 
 // Helper: epoch ms for a local wall-clock time at a fixed offset (minutes east of UTC).
@@ -168,5 +168,35 @@ describe('plateau detection (D6)', () => {
   it('is safe on empty input', () => {
     expect(plateauStreak([])).toEqual({ streak: 0, weightKg: null, addOn: false });
     expect(plateauNudge([])).toBeNull();
+  });
+});
+
+// G3: the add-on adds an unknown positive amount, so the nudge may only clear
+// on comparisons that hold whatever that amount turns out to be.
+describe('clearing the plateau across add-on changes (G3)', () => {
+  const session = (day, ...sets) => ({ day, sets: sets.map(([weightKg, reps, addOn = false]) => ({ weightKg, reps, addOn })) });
+  const plainPlateau = [session('d1', [50, 10]), session('d2', [50, 10]), session('d3', [50, 10])];
+  const addOnPlateau = [session('d1', [50, 10, true]), session('d2', [50, 10, true]), session('d3', [50, 10, true])];
+
+  it('same add-on state: a heavier recorded weight clears it', () => {
+    expect(beatsBaseline({ weightKg: 52.5, addOn: false }, { weightKg: 50, addOn: false })).toBe(true);
+    expect(plateauNudge(plainPlateau, [{ weightKg: 52.5, reps: 8, addOn: false }])).toBeNull();
+  });
+
+  it('turning the add-on ON at the same weight clears it — that is heavier', () => {
+    expect(beatsBaseline({ weightKg: 50, addOn: true }, { weightKg: 50, addOn: false })).toBe(true);
+    expect(plateauNudge(plainPlateau, [{ weightKg: 50, reps: 10, addOn: true }])).toBeNull();
+  });
+
+  it('turning the add-on OFF never clears it, however much weight is added', () => {
+    // The dropped add-on could be worth more than the weight gained, so the app
+    // must not claim this is heavier.
+    expect(beatsBaseline({ weightKg: 55, addOn: false }, { weightKg: 50, addOn: true })).toBe(false);
+    expect(plateauNudge(addOnPlateau, [{ weightKg: 55, reps: 8, addOn: false }])).toBeTruthy();
+  });
+
+  it('equal effort in either state leaves the nudge up', () => {
+    expect(plateauNudge(plainPlateau, [{ weightKg: 50, reps: 10, addOn: false }])).toBeTruthy();
+    expect(plateauNudge(addOnPlateau, [{ weightKg: 50, reps: 10, addOn: true }])).toBeTruthy();
   });
 });

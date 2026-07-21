@@ -54,7 +54,9 @@ test('exercises logged today are marked so the remaining ones stand out', async 
   await expect(done).toHaveCount(1);
   await expect(done).toContainText('Bench press');
   // The state is in the accessible name, not colour or an icon alone.
-  await expect(done).toHaveAttribute('aria-label', /logged today/);
+  await expect(done).toContainText('logged today');
+  // The session summary stays in the accessible name (not replaced by a label).
+  await expect(done).toContainText('Today');
   await expect(page.locator('.list-row', { hasText: 'Squat' })).not.toHaveAttribute('data-done', 'true');
 });
 

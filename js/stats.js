@@ -143,9 +143,19 @@ export function plateauStreak(sessions) {
 export function plateauNudge(previousSessions, todaySets = [], threshold = 3) {
   const { streak, weightKg, addOn } = plateauStreak(previousSessions);
   if (streak < threshold || !(weightKg > 0)) return null;
-  if (todaySets.length) {
-    const todayTop = Math.max(...todaySets.map((s) => s.weightKg));
-    if (todayTop > weightKg) return null;
-  }
+  if (todaySets.length && beatsBaseline(topEffort(todaySets), { weightKg, addOn })) return null;
   return { sessions: streak, weightKg, addOn };
+}
+
+// Is today's effort DEFINITELY heavier than the plateau? The add-on adds an
+// unknown positive amount (D7), so only comparisons that hold whatever that
+// amount is may clear the nudge:
+//   same add-on state  → a higher recorded weight is heavier;
+//   off → on           → the same or more recorded weight is heavier;
+//   on → off           → unknowable, because the dropped add-on could be worth
+//                        more than the weight gained. Keep the nudge.
+export function beatsBaseline(today, baseline) {
+  if (today.addOn === baseline.addOn) return today.weightKg > baseline.weightKg;
+  if (today.addOn && !baseline.addOn) return today.weightKg >= baseline.weightKg;
+  return false;
 }

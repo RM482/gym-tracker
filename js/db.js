@@ -57,20 +57,35 @@ function bootstrap(db) {
 }
 
 function applyMigrations(db, tx, oldVersion, newVersion, steps) {
+  // Structural changes run first, in version order — they are synchronous on
+  // the upgrade transaction.
+  const chains = new Map(); // storeName -> [fn, …] in version order
   for (let v = oldVersion; v < newVersion; v++) {
     const step = steps[v];
     if (!step) throw new Error(`Missing migration for version ${v}`);
     step.structural?.(db, tx);
     for (const [storeName, fn] of Object.entries(step.records ?? {})) {
-      const store = tx.objectStore(storeName);
-      store.openCursor().onsuccess = (ev) => {
-        const cur = ev.target.result;
-        if (!cur) return;
-        const out = fn(cur.value);
-        if (out === null) cur.delete(); else cur.update(out);
-        cur.continue();
-      };
+      if (!chains.has(storeName)) chains.set(storeName, []);
+      chains.get(storeName).push(fn);
     }
+  }
+
+  // Each store is then walked ONCE, applying every version's transform to a
+  // record in order. Opening a cursor per version instead would let two cursors
+  // read the same original value concurrently, so a later version's transform
+  // could overwrite an earlier one's work on a multi-version upgrade.
+  for (const [storeName, fns] of chains) {
+    tx.objectStore(storeName).openCursor().onsuccess = (ev) => {
+      const cur = ev.target.result;
+      if (!cur) return;
+      let value = cur.value;
+      for (const fn of fns) {
+        value = fn(value);
+        if (value === null) break; // a step deleting the record ends its chain
+      }
+      if (value === null) cur.delete(); else cur.update(value);
+      cur.continue();
+    };
   }
 }
 

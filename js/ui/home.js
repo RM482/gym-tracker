@@ -82,15 +82,19 @@ function exerciseRow(ex, last, today, groupName) {
   if (doneToday) {
     row.classList.add('done-today');
     row.dataset.done = 'true';
+    // Stated as text inside the button rather than as an aria-label override:
+    // overriding would replace the computed name and cost screen-reader users
+    // the session summary that sighted users can read (F6, plan §13).
+    const state = document.createElement('span');
+    state.className = 'visually-hidden';
+    state.textContent = ' — logged today';
+    main.appendChild(state);
     const tick = document.createElement('span');
     tick.className = 'done-tick';
     tick.textContent = '✓';
-    tick.setAttribute('aria-hidden', 'true'); // the state is in the accessible name below
+    tick.setAttribute('aria-hidden', 'true');
     row.appendChild(tick);
   }
-  // Carries the state in the accessible name rather than relying on the tick
-  // or on colour alone (F6, plan §13).
-  row.setAttribute('aria-label', `${ex.name}${doneToday ? ', logged today' : ''}`);
   row.addEventListener('click', () => { location.hash = `#/log/${ex.id}`; });
   return row;
 }

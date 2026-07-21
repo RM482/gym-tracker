@@ -190,6 +190,12 @@ async function render() {
   }
   const seq = ++renderSeq;
   const key = routeKey(route);
+  // Screens use this before any global side effect (navigation, toast, focus)
+  // that follows an await: rendering is detached, but side effects are not, so
+  // a superseded screen must stay silent rather than hijack the live one.
+  const isCurrent = () => shouldCommitRender({
+    seq, currentSeq: renderSeq, updateRequired, key, currentKey: routeKey(parseRoute(location.hash)),
+  });
   try {
     await ensureCtx();
   } catch (err) {
@@ -201,13 +207,13 @@ async function render() {
     renderDbError(el, err, thisLoadFailureCount ?? 0);
     return;
   }
+  // A newer render may have started while the database was opening.
+  if (!isCurrent()) return;
   // Build detached. The live screen is never cleared until a render is ready to
   // commit, so overlapping renders cannot interleave their appends into #app.
   const container = document.createElement('div');
-  await SCREENS[route.screen].render(container, route.params, ctx);
-  if (!shouldCommitRender({
-    seq, currentSeq: renderSeq, updateRequired, key, currentKey: routeKey(parseRoute(location.hash)),
-  })) return;
+  await SCREENS[route.screen].render(container, route.params, { ...ctx, isCurrent });
+  if (!isCurrent()) return;
   // Move the children rather than the container itself: #app > .btn-primary and
   // friends are direct-child selectors that a wrapper element would break.
   el.replaceChildren(...container.childNodes);

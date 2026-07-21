@@ -2,6 +2,25 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-21 — Change set 1: Codex verification pass, five defects fixed ✅
+
+Codex reviewed the implemented code (not just the plan) and raised five findings; all were verified against the code and fixed.
+
+**Completed**
+- **Superseded renders can no longer hijack navigation (G1).** Rendering was atomic, but side effects were not: a stale Log/History render for a missing exercise still toasted and redirected Home, pulling the owner off the screen they had actually opened. Screens now get `ctx.isCurrent()` and must check it before any post-await global effect, and `render()` re-checks after the database opens before invoking a screen at all.
+- **v2 shapes are now enforced at the write and backup boundaries (G2)** — a gap between what the previous response document promised and what shipped. Backup import rejects an out-of-taxonomy muscle group or non-boolean add-on flag *after* migration (so genuine v1 files still restore); every exercise/set write-back normalises, so an unrelated rename or edit cannot persist a legacy record un-migrated; snapshots export canonical shapes. Tolerant reads are kept on purpose: a cosmetic field must never make real history vanish.
+- **The plateau nudge no longer claims orderings it cannot establish (G3).** The streak compared (weight, add-on) as a pair but the clear-check compared weight alone. Now it clears only where the comparison holds whatever the unknown add-on weighs: same state and heavier, or off→on at the same or more weight — never on→off, because the dropped add-on could outweigh the gain.
+- **Multi-version migrations are genuinely sequential (G4).** One cursor per version over the same store meant two cursors could read the same original record, letting a later version's transform overwrite an earlier one's. Harmless for the shipped single-step v1→v2, a landmine for the next one. Each store is now walked once, applying every version's transform in order.
+- **The done-today marker keeps its accessible name (G5).** The `aria-label` override was replacing the computed name and costing screen-reader users the session summary; it is now visually-hidden text inside the button instead.
+
+**Tests run** (2026-07-21): Vitest 116/116, Playwright 22/22, `check:precache` OK. New coverage: stale-render navigation suppression, current-schema backup rejection (invalid group, non-boolean flag) with v1 files still accepted, legacy records normalising on rename/archive/edit/snapshot, plateau clearing across every add-on transition, and a real v1→v3 upgrade with a dependent step and a deleting step. Cache `gt-v0.16.0`.
+
+**Known issues**: none. Deliberately not browser-tested (noted, not skipped silently): the `DbTooOldError` recovery screen, and end-to-end add-on correction via quick-entry/repeat/editor — both covered at the unit level.
+
+**Next step**: owner device pass on the iPhone.
+
+**Departures from plan**: none.
+
 ## 2026-07-21 — Change set 1, slices 5–8: the four requested features ✅
 
 **Completed**

@@ -17,8 +17,10 @@ function timeLabel(ms) {
 export async function render(el, { exerciseId }, ctx) {
   const exercise = await ctx.store.getExercise(exerciseId);
   if (!exercise) {
-    toast('That exercise was deleted');
-    location.hash = '#/';
+    if (ctx.isCurrent?.() !== false) {
+      toast('That exercise was deleted');
+      location.hash = '#/';
+    }
     return;
   }
   el.appendChild(header({ title: exercise.name, back: exercise.archivedAtMs ? '#/' : `#/log/${exercise.id}` }));

@@ -74,3 +74,29 @@ test('B9: rapid navigation never commits a stale screen', async ({ page }) => {
   await expect(page.locator('h1')).toHaveText('Settings');
   await expect(page.locator('.list-row')).toHaveCount(0);
 });
+
+// G1: rendering is detached, but side effects are not. A superseded Log render
+// for a deleted exercise used to still toast and redirect Home, yanking the
+// owner off whichever screen they had actually navigated to.
+test('B9: a superseded render for a missing exercise cannot hijack navigation', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.chip', { hasText: 'Bench press' }).click();
+  await expect(page.locator('.list-row')).toHaveCount(1);
+
+  // Start a Log render for an exercise that does not exist, then immediately
+  // navigate somewhere else before it resolves.
+  await page.evaluate(() => {
+    location.hash = '#/log/does-not-exist';
+    location.hash = '#/settings';
+  });
+
+  await expect(page.locator('h1')).toHaveText('Settings');
+  await page.waitForTimeout(600);
+  // Still on Settings: the stale render neither redirected nor toasted.
+  await expect(page.locator('h1')).toHaveText('Settings');
+  await expect(page.locator('#toast-region .toast')).toHaveCount(0);
+
+  // Navigating there directly still redirects, as it should.
+  await page.goto('/#/log/does-not-exist');
+  await expect(page.locator('h1')).toHaveText('Gym Tracker');
+});

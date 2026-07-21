@@ -362,3 +362,42 @@ describe('backup reminder timing (plan §6.1)', () => {
     expect((await store.getSettings()).firstDataChangeAtMs).toBe(first); // set once
   });
 });
+
+// G2: a legacy record must not survive an unrelated edit still un-migrated, or
+// be exported as nominally-current v2 data.
+describe('legacy records become canonical on write (G2)', () => {
+  async function writeLegacy() {
+    const dbHandle = await openDb({ name: `store-test-${dbCount}` });
+    await dbHandle.run(['exercises', 'sets'], 'readwrite', async (s) => {
+      await s.exercises.put({ id: 'old', name: 'Old row', sortOrder: 50, archivedAtMs: null, createdAtMs: 1, updatedAtMs: 1 });
+      await s.sets.put({ id: 'old-set', exerciseId: 'old', weightKg: 10, reps: 8, performedAtMs: 1, tzOffsetMin: 0, workoutDay: '2026-07-01', createdAtMs: 1, updatedAtMs: 1 });
+    });
+    return dbHandle;
+  }
+  const raw = async (dbHandle, store, id) => dbHandle.run(store, 'readonly', (s) => s[store].get(id));
+
+  it('rename writes back a canonical record', async () => {
+    const dbHandle = await writeLegacy();
+    expect((await raw(dbHandle, 'exercises', 'old')).muscleGroup).toBeUndefined();
+    await store.renameExercise('old', 'Renamed row');
+    expect((await raw(dbHandle, 'exercises', 'old')).muscleGroup).toBeNull();
+    dbHandle.close();
+  });
+
+  it('archiving and editing a set do the same', async () => {
+    const dbHandle = await writeLegacy();
+    await store.archiveExercise('old');
+    expect((await raw(dbHandle, 'exercises', 'old')).muscleGroup).toBeNull();
+    await store.editSet('old-set', { reps: 10 });
+    expect((await raw(dbHandle, 'sets', 'old-set')).addOn).toBe(false);
+    dbHandle.close();
+  });
+
+  it('backup snapshots export canonical shapes, never raw legacy records', async () => {
+    const dbHandle = await writeLegacy();
+    const snapshot = await store.snapshotForBackup();
+    expect(snapshot.exercises.find((x) => x.id === 'old').muscleGroup).toBeNull();
+    expect(snapshot.sets.find((s) => s.id === 'old-set').addOn).toBe(false);
+    dbHandle.close();
+  });
+});

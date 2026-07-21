@@ -168,3 +168,44 @@ describe('v1 → v2 migration (muscleGroup + addOn)', () => {
     h.close();
   });
 });
+
+// G4: a multi-version upgrade previously opened one cursor per version over the
+// same store, so two cursors could read the same original record and the later
+// version's transform could overwrite the earlier one's work.
+describe('multi-version record migrations (G4)', () => {
+  it('applies each version in order to every record, including dependent steps', async () => {
+    const name = fresh();
+    const v1 = await openDb({ name, _version: 1, _migrations: {} });
+    await v1.run('sets', 'readwrite', async (s) => {
+      await s.sets.put({ id: 's1', exerciseId: 'e1', weightKg: 10, reps: 8, performedAtMs: 1, tzOffsetMin: 0, workoutDay: 'd', createdAtMs: 1, updatedAtMs: 1 });
+      await s.sets.put({ id: 's2', exerciseId: 'e1', weightKg: 20, reps: 5, performedAtMs: 2, tzOffsetMin: 0, workoutDay: 'd', createdAtMs: 2, updatedAtMs: 2 });
+    });
+    v1.close();
+
+    // v3 depends on the field v2 creates: if the steps raced, `doubled` would be
+    // NaN (or the v2 field would be missing entirely).
+    const table = {
+      1: { records: { sets: (r) => ({ ...r, addedInV2: r.weightKg * 2 }) } },
+      2: { records: { sets: (r) => ({ ...r, doubled: r.addedInV2 * 2 }) } },
+    };
+    const v3 = await openDb({ name, _version: 3, _migrations: table });
+    const sets = (await v3.run('sets', 'readonly', (s) => s.sets.getAll())).sort((a, b) => a.id < b.id ? -1 : 1);
+    expect(sets.map((s) => s.addedInV2)).toEqual([20, 40]);
+    expect(sets.map((s) => s.doubled)).toEqual([40, 80]);
+    v3.close();
+  });
+
+  it('stops a record’s chain when a step deletes it', async () => {
+    const name = fresh();
+    const v1 = await openDb({ name, _version: 1, _migrations: {} });
+    await v1.run('sets', 'readwrite', (s) => s.sets.put({ id: 's1', exerciseId: 'e1', weightKg: 10, reps: 8, performedAtMs: 1, tzOffsetMin: 0, workoutDay: 'd', createdAtMs: 1, updatedAtMs: 1 }));
+    v1.close();
+    const table = {
+      1: { records: { sets: () => null } },
+      2: { records: { sets: (r) => ({ ...r, shouldNotRun: true }) } },
+    };
+    const v3 = await openDb({ name, _version: 3, _migrations: table });
+    expect(await v3.run('sets', 'readonly', (s) => s.sets.getAll())).toEqual([]);
+    v3.close();
+  });
+});

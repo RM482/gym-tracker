@@ -38,8 +38,12 @@ function lastTimeLabel(day, today) {
 export async function render(el, { exerciseId }, ctx) {
   const ex = await ctx.store.getExercise(exerciseId);
   if (!ex || ex.archivedAtMs) {
-    toast('That exercise is archived or was deleted');
-    location.hash = '#/';
+    // Only the live render may redirect; a superseded one would yank the owner
+    // off whichever screen they actually navigated to.
+    if (ctx.isCurrent?.() !== false) {
+      toast('That exercise is archived or was deleted');
+      location.hash = '#/';
+    }
     return;
   }
 

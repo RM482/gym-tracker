@@ -7,6 +7,7 @@
 // has not yet run would have supplied.
 
 import { DB_VERSION, migrations } from './db.js';
+import { MUSCLE_GROUPS } from './store.js';
 
 export function buildBackup(snapshot, exportedAtMs) {
   return {
@@ -67,6 +68,11 @@ export function validateBackup(input) {
   for (const ex of data.exercises) {
     if (!ex || typeof ex.id !== 'string' || typeof ex.name !== 'string' || !ex.name.trim() || ex.name.length > 60
       || !Number.isInteger(ex.sortOrder) || typeof ex.createdAtMs !== 'number') throw new BackupError('An exercise record is invalid');
+    // Post-migration the file must satisfy the CURRENT schema: an unknown group
+    // would otherwise be imported and silently re-exported as valid v2 data.
+    if (!(ex.muscleGroup === null || ex.muscleGroup === undefined || MUSCLE_GROUPS.includes(ex.muscleGroup))) {
+      throw new BackupError(`Unknown muscle group on “${ex.name}”: ${ex.muscleGroup}`);
+    }
     if (ids.has(ex.id)) throw new BackupError(`Duplicate exercise id: ${ex.id}`);
     ids.add(ex.id);
     if (!ex.archivedAtMs) {
@@ -84,6 +90,7 @@ export function validateBackup(input) {
       || !Number.isInteger(set.reps) || set.reps < 1 || set.reps > 200
       || typeof set.performedAtMs !== 'number' || !Number.isFinite(set.performedAtMs)
       || typeof set.tzOffsetMin !== 'number' || typeof set.workoutDay !== 'string') throw new BackupError(`Invalid set: ${set.id}`);
+    if (!(set.addOn === undefined || typeof set.addOn === 'boolean')) throw new BackupError(`Invalid machine add-on flag on set: ${set.id}`);
   }
   // `unreadable` records are carried in the file for manual inspection and are
   // deliberately never restored into the database (plan §16, S3).

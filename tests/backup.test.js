@@ -117,3 +117,37 @@ describe('restoring a genuine v1 backup into v2', () => {
     expect(() => validateBackup(broken)).toThrow(/missing exercise/);
   });
 });
+
+// G2: after migration the file must satisfy the CURRENT schema, or tolerated
+// junk would be imported and later re-exported as nominally valid v2 data.
+describe('current-schema enforcement on import (G2)', () => {
+  const ex = { id: 'e', name: 'Row', sortOrder: 0, archivedAtMs: null, createdAtMs: 1, updatedAtMs: 1, muscleGroup: null };
+  const set = { id: 's', exerciseId: 'e', weightKg: 10, reps: 8, addOn: false, performedAtMs: 1, tzOffsetMin: 0, workoutDay: '2026-07-19', createdAtMs: 1, updatedAtMs: 1 };
+  const current = { app: 'gym-tracker', schemaVersion: DB_VERSION, exercises: [ex], sets: [set], settings: { id: 'app' } };
+
+  it('accepts a well-formed current backup', () => {
+    expect(validateBackup(current).sets).toHaveLength(1);
+  });
+
+  it('rejects a muscle group outside the taxonomy, naming the exercise', () => {
+    const bad = { ...current, exercises: [{ ...ex, muscleGroup: 'Quads' }] };
+    expect(() => validateBackup(bad)).toThrow(/Unknown muscle group on “Row”/);
+  });
+
+  it('rejects a non-boolean add-on flag', () => {
+    expect(() => validateBackup({ ...current, sets: [{ ...set, addOn: 'yes' }] })).toThrow(/machine add-on/);
+    expect(() => validateBackup({ ...current, sets: [{ ...set, addOn: 1 }] })).toThrow(/machine add-on/);
+  });
+
+  it('still accepts a v1 file whose records simply lack the fields', () => {
+    const v1 = { ...current, schemaVersion: 1, exercises: [{ ...ex, muscleGroup: undefined }], sets: [{ ...set, addOn: undefined }] };
+    const staged = validateBackup(v1);
+    expect(staged.exercises[0].muscleGroup).toBeNull();
+    expect(staged.sets[0].addOn).toBe(false);
+  });
+
+  it('rejects a v1 file carrying an invalid group that migration cannot fix', () => {
+    const v1 = { ...current, schemaVersion: 1, exercises: [{ ...ex, muscleGroup: 'Quads' }] };
+    expect(() => validateBackup(v1)).toThrow(/Unknown muscle group/);
+  });
+});
