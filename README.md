@@ -9,7 +9,8 @@ A very fast, local-first gym logging app for one user's iPhone, built as an inst
 - `docs/REQUIREMENTS.md` — what the app must do (source of truth)
 - `docs/PROJECT_PLAN_FINAL.md` — the approved implementation plan (reviewed twice + verified by Codex; see `docs/reviews/`)
 - `docs/DECISIONS.md` — decision log
-- `docs/PROGRESS.md` — build progress
+- `docs/HANDOFF.md` — **start here**: current state, what is outstanding, and the process to follow
+- `docs/PROGRESS.md` — build progress, newest first
 - `docs/TESTING.md` — test strategy results and the manual device scripts
 - `docs/MAINTENANCE.md` — how to change, deploy and recover the app
 

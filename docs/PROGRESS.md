@@ -1,5 +1,9 @@
 # Progress log
 
+> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 1 complete and
+> deployed (`gt-v0.16.0`, `DB_VERSION = 2`), tests green (Vitest 116, Playwright 22), working tree clean.
+> The only thing outstanding is the owner's device pass on their iPhone.
+
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
 ## 2026-07-21 — Change set 1: Codex verification pass, five defects fixed ✅
