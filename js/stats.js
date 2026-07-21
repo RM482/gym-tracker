@@ -107,3 +107,45 @@ export function consistencyWorkouts(sets, todayDay) {
   return new Set(sets.filter((set) => set.workoutDay >= cutoff && set.workoutDay <= todayDay)
     .map((set) => set.workoutDay)).size;
 }
+
+// A session's top effort: the heaviest weight recorded that day, plus whether
+// the machine add-on was engaged at that weight. The add-on's kilograms are
+// unknown (D7), so it cannot be added to the number — but 50 kg with it is a
+// different load from 50 kg without, which is why it travels as a pair.
+export function topEffort(sets) {
+  const weightKg = Math.max(...sets.map((s) => s.weightKg));
+  const addOn = sets.some((s) => s.weightKg === weightKg && s.addOn === true);
+  return { weightKg, addOn };
+}
+
+// Sessions must be ordered OLDEST → NEWEST.
+// How many of the most recent consecutive sessions share an identical top
+// effort. Zero-weight (pure bodyweight) sessions are excluded: reps progression
+// is a different measure and would produce false plateau claims (F13).
+export function plateauStreak(sessions) {
+  const none = { streak: 0, weightKg: null, addOn: false };
+  if (!sessions?.length) return none;
+  const tops = sessions.map((session) => topEffort(session.sets));
+  const latest = tops.at(-1);
+  if (!(latest.weightKg > 0)) return none;
+  let streak = 1;
+  for (let i = tops.length - 2; i >= 0; i--) {
+    const t = tops[i];
+    if (t.weightKg === latest.weightKg && t.addOn === latest.addOn && t.weightKg > 0) streak += 1;
+    else break;
+  }
+  return { streak, weightKg: latest.weightKg, addOn: latest.addOn };
+}
+
+// The in-app plateau nudge (D6). Evaluated over COMPLETED workout-days strictly
+// before today, so a warm-up set logged today cannot make it vanish before the
+// day's real top set exists. It clears as soon as today beats the plateau.
+export function plateauNudge(previousSessions, todaySets = [], threshold = 3) {
+  const { streak, weightKg, addOn } = plateauStreak(previousSessions);
+  if (streak < threshold || !(weightKg > 0)) return null;
+  if (todaySets.length) {
+    const todayTop = Math.max(...todaySets.map((s) => s.weightKg));
+    if (todayTop > weightKg) return null;
+  }
+  return { sessions: streak, weightKg, addOn };
+}

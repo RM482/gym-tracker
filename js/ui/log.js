@@ -7,6 +7,7 @@
 // Exported for unit tests: pickRepeatSet(prevSets, todayCount).
 
 import { header, toast, formatDayLabel } from './components.js';
+import { plateauNudge } from '../stats.js';
 import { parseQuickEntry } from '../parser.js';
 import { openSetEditor } from './set-editor.js';
 import * as platform from '../platform.js';
@@ -23,7 +24,9 @@ export function pickRepeatSet(prevSets, todayCount) {
 }
 
 export function fmtSet(s) {
-  return s.weightKg > 0 ? `${s.weightKg} kg × ${s.reps}` : `bw × ${s.reps}`;
+  const base = s.weightKg > 0 ? `${s.weightKg} kg × ${s.reps}` : `bw × ${s.reps}`;
+  // The add-on's kilograms are unknown, so it is shown, never added (D7).
+  return s.addOn ? `${base} +on` : base;
 }
 
 function lastTimeLabel(day, today) {
@@ -97,16 +100,30 @@ export async function render(el, { exerciseId }, ctx) {
     el.appendChild(todayCard);
   }
 
+  // ---- Plateau nudge (D6) ----
+  // Computed over completed sessions strictly before today, so a warm-up set
+  // cannot hide it before today's real top set exists; it clears once beaten.
+  // getRecentSessions returns newest-first; the streak walks chronologically.
+  const nudge = plateauNudge([...sessions].reverse(), todaySets);
+  if (nudge) {
+    const banner = document.createElement('p');
+    banner.className = 'nudge';
+    banner.setAttribute('role', 'status');
+    banner.textContent = `Top weight unchanged for ${nudge.sessions} sessions: ${nudge.weightKg} kg${nudge.addOn ? ' with the machine add-on' : ''}.`;
+    el.appendChild(banner);
+  }
+
   // ---- Entry controls ----
   // Pre-fill (§6.2): today's last set if any; else previous session's FIRST set;
   // else weight empty + reps 8 (Save enables once a weight is entered).
   let prefillW = null;
   let prefillR = 8;
+  let addOn = false;
   if (todaySets.length > 0) {
     const last = todaySets[todaySets.length - 1];
-    prefillW = last.weightKg; prefillR = last.reps;
+    prefillW = last.weightKg; prefillR = last.reps; addOn = last.addOn === true;
   } else if (prev) {
-    prefillW = prev.sets[0].weightKg; prefillR = prev.sets[0].reps;
+    prefillW = prev.sets[0].weightKg; prefillR = prev.sets[0].reps; addOn = prev.sets[0].addOn === true;
   }
 
   const coarse = settings.coarseIncrementKg;
@@ -132,6 +149,18 @@ export async function render(el, { exerciseId }, ctx) {
     stepBtn('+0.5', () => bump(weightInput, 0.5, readWeight, 0, 999)),
     stepBtn(`+${coarse}`, () => bump(weightInput, coarse, readWeight, 0, 999)),
   ]));
+  const addOnToggle = document.createElement('button');
+  addOnToggle.type = 'button';
+  addOnToggle.className = 'addon-toggle';
+  const paintAddOn = () => {
+    addOnToggle.textContent = addOn ? 'Machine add-on: ON' : 'Machine add-on: off';
+    addOnToggle.classList.toggle('addon-on', addOn);
+    addOnToggle.setAttribute('aria-pressed', String(addOn));
+  };
+  addOnToggle.addEventListener('click', () => { addOn = !addOn; paintAddOn(); });
+  paintAddOn();
+  el.appendChild(addOnToggle);
+
   el.appendChild(stepperRow('Reps', [
     stepBtn('−1', () => bump(repsInput, -1, readReps, 1, 200)),
     repsInput,
@@ -163,7 +192,7 @@ export async function render(el, { exerciseId }, ctx) {
     const r = readReps();
     if (!Number.isFinite(w)) throw new Error('Enter a weight (0 is fine for bodyweight)');
     if (!Number.isFinite(r)) throw new Error('Enter the reps');
-    await ctx.store.addSet({ exerciseId: ex.id, weightKg: w, reps: r });
+    await ctx.store.addSet({ exerciseId: ex.id, weightKg: w, reps: r, addOn });
     platform.requestPersist().catch(() => {});
     toast(`Saved ✓ · set ${todaySets.length + 1}`);
     ctx.refresh();
@@ -177,7 +206,7 @@ export async function render(el, { exerciseId }, ctx) {
     btn.className = 'btn-secondary';
     btn.textContent = `↻ Same as last time — ${fmtSet(repeat)}`;
     btn.addEventListener('click', () => guard(async () => {
-      await ctx.store.addSet({ exerciseId: ex.id, weightKg: repeat.weightKg, reps: repeat.reps });
+      await ctx.store.addSet({ exerciseId: ex.id, weightKg: repeat.weightKg, reps: repeat.reps, addOn: repeat.addOn === true });
       platform.requestPersist().catch(() => {});
       toast(`Saved ✓ · set ${todaySets.length + 1}`);
       ctx.refresh();
@@ -252,7 +281,7 @@ export async function render(el, { exerciseId }, ctx) {
     confirm.textContent = `Add ${result.sets.length} set${result.sets.length === 1 ? '' : 's'}`;
     saveButtons.push(confirm);
     confirm.addEventListener('click', () => guard(async () => {
-      await ctx.store.addSets(ex.id, result.sets);
+      await ctx.store.addSets(ex.id, result.sets.map((set) => ({ ...set, addOn })));
       platform.requestPersist().catch(() => {});
       quickDrafts.delete(ex.id);
       toast(`Saved ✓ · ${result.sets.length} set${result.sets.length === 1 ? '' : 's'}`);

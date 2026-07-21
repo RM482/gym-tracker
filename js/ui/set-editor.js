@@ -37,6 +37,20 @@ export function openSetEditor(set, ctx) {
 
       const weight = makeField('Weight (kg)', String(set.weightKg), 'decimal');
       const reps = makeField('Repetitions', String(set.reps), 'numeric');
+
+      // The machine add-on is recorded state, correctable here (D7). Its
+      // kilograms are unknown, so it never alters the weight field.
+      let addOn = set.addOn === true;
+      const addOnToggle = document.createElement('button');
+      addOnToggle.type = 'button';
+      addOnToggle.className = 'addon-toggle';
+      const paintAddOn = () => {
+        addOnToggle.textContent = addOn ? 'Machine add-on: ON' : 'Machine add-on: off';
+        addOnToggle.classList.toggle('addon-on', addOn);
+        addOnToggle.setAttribute('aria-pressed', String(addOn));
+      };
+      addOnToggle.addEventListener('click', () => { addOn = !addOn; paintAddOn(); });
+      paintAddOn();
       const when = makeField('Date and time', initialDateTime, undefined, 'datetime-local');
       const dayNote = document.createElement('p');
       dayNote.className = 'day-move-note';
@@ -67,7 +81,7 @@ export function openSetEditor(set, ctx) {
         error.textContent = '';
         const weightKg = Number(String(weight.input.value).replace(',', '.'));
         const repetitions = Number(reps.input.value);
-        const patch = { weightKg, reps: repetitions };
+        const patch = { weightKg, reps: repetitions, addOn };
         if (when.input.value !== initialDateTime) {
           const date = parseLocalDateTime(when.input.value);
           if (!date) { error.textContent = 'Choose a valid date and time'; return; }
@@ -125,7 +139,7 @@ export function openSetEditor(set, ctx) {
       cancel.className = 'btn-secondary';
       cancel.textContent = 'Cancel';
       cancel.addEventListener('click', close);
-      card.append(weight.label, reps.label, when.label, dayNote, error, save, remove, cancel);
+      card.append(weight.label, reps.label, addOnToggle, when.label, dayNote, error, save, remove, cancel);
     },
   });
 }

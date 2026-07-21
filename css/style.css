@@ -406,3 +406,49 @@ button:disabled { cursor: default; }
 .chart-latest { text-align: right; color: var(--text-soft); font-size: 0.9rem; }
 .chart-card .sub { color: var(--text-soft); font-size: 0.9rem; margin-top: 0.35rem; }
 .consistency-line { text-align: center; color: var(--text-soft); margin: 1rem 0; }
+
+/* Muscle-group sections (D8) */
+.group-heading { margin-top: 1.25rem; }
+.group-heading:first-of-type { margin-top: 0.5rem; }
+
+/* Already trained today (feedback item 3). Receded, never reordered — rows
+   moving between sets would be worse than scanning for them. */
+.list-row.done-today { opacity: 0.62; }
+.list-row.done-today .name { text-decoration: line-through; text-decoration-thickness: 1px; }
+.done-tick { margin-left: auto; padding-left: 0.5rem; color: var(--accent); font-weight: 700; }
+
+/* Machine add-on toggle (D7) */
+.addon-toggle {
+  display: block;
+  width: 100%;
+  min-height: 3rem;
+  margin-bottom: 0.75rem;
+  padding: 0 0.75rem;
+  font-size: 1rem;
+  text-align: left;
+  color: var(--text-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.addon-toggle.addon-on {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.sheet .addon-toggle { margin: 0.25rem 0 0.75rem; }
+
+/* Plateau nudge (D6) */
+.nudge {
+  padding: 0.65rem 0.8rem;
+  margin-bottom: 0.75rem;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+}
+
+/* Dashboard caveat where add-on sets exist (F11) */
+.addon-caveat { color: var(--text-soft); font-size: 0.85rem; margin-top: 0.4rem; }

@@ -27,7 +27,7 @@ export class ValidationError extends Error {
 
 const FUTURE_SLACK_MS = 10 * 60000; // §8.2: reject timestamps > now + 10 min
 const BATCH_MAX = 30;               // §8.4 limit
-const DEFAULT_SETTINGS = { id: 'app', coarseIncrementKg: 2.5, exerciseSort: 'recent', lastExportAtMs: null, lastDataChangeAtMs: null, backupBannerSnoozedAtMs: null };
+const DEFAULT_SETTINGS = { id: 'app', coarseIncrementKg: 2.5, exerciseSort: 'recent', lastExportAtMs: null, lastDataChangeAtMs: null, firstDataChangeAtMs: null, backupBannerSnoozedAtMs: null };
 
 function normName(name) { return String(name ?? '').trim(); }
 function nameKey(name) { return normName(name).toLowerCase(); }
@@ -129,6 +129,10 @@ export function createStore({ dbHandle, platform }) {
 
   async function touchDataChange(stores) {
     const settings = (await stores.settings.get('app')) ?? { ...DEFAULT_SETTINGS };
+    // firstDataChangeAtMs is the baseline the backup reminder counts 30 days
+    // from when the owner has never exported; without it the reminder fires the
+    // moment anything is saved (plan §6.1 asks for 30 days, not immediately).
+    settings.firstDataChangeAtMs ??= platform.now();
     settings.lastDataChangeAtMs = platform.now();
     await stores.settings.put(settings);
   }
@@ -439,4 +443,21 @@ export function createStore({ dbHandle, platform }) {
   };
 
   return store;
+}
+
+// Backup reminder (plan §6.1): nag only when there are unexported changes AND
+// 30 days have passed — counted from the last export, or from the first-ever
+// data change when the owner has never exported. Without that baseline the
+// reminder fired the instant anything was saved, so it showed permanently.
+export function isBackupOverdue(settings, nowMs) {
+  const DAY_MS = 86400000;
+  const lastChange = settings?.lastDataChangeAtMs;
+  if (!lastChange) return false;
+  const lastExport = settings.lastExportAtMs;
+  if (lastExport && lastChange <= lastExport) return false; // nothing new since the last export
+  const baseline = lastExport ?? settings.firstDataChangeAtMs ?? lastChange;
+  if (nowMs - baseline <= 30 * DAY_MS) return false;
+  const snoozed = settings.backupBannerSnoozedAtMs;
+  if (snoozed && nowMs - snoozed <= 7 * DAY_MS) return false;
+  return true;
 }

@@ -78,6 +78,15 @@ export async function render(el, params, ctx) {
     addPr('Heaviest', allProgress.prs.heaviest, 'kg', 2);
     addPr('Best estimated 1RM', allProgress.prs.e1rm, 'kg', 1);
     addPr('Most reps', allProgress.prs.reps, 'reps');
+    // Where the machine add-on was used, these figures are the recorded base
+    // load: its kilograms are unknown and deliberately excluded, so an add-on
+    // set is understated rather than silently inflated (D7, F11).
+    if (sets.some((set) => set.addOn === true)) {
+      const caveat = document.createElement('p');
+      caveat.className = 'addon-caveat';
+      caveat.textContent = 'Some sets used the machine add-on. Weights and estimates show the recorded kg only — the add-on’s extra weight is unknown and not included.';
+      prCard.appendChild(caveat);
+    }
     body.appendChild(prCard);
 
     if (!periodSets.length) {

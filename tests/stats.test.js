@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   workoutDay, compareSets, dayDurationMs, groupDaySets, epley,
   exerciseProgress, filterSetsByPeriod, consistencyWorkouts,
+  topEffort, plateauStreak, plateauNudge,
 } from '../js/stats.js';
 
 // Helper: epoch ms for a local wall-clock time at a fixed offset (minutes east of UTC).
@@ -106,5 +107,66 @@ describe('dashboard metrics (plan §11.2)', () => {
     expect(filterSetsByPeriod(sets, '2026-07-19', '6m').map((entry) => entry.id)).toEqual(['b', 'c', 'd', 'e']);
     expect(filterSetsByPeriod(sets, '2026-07-19', 'all')).toHaveLength(5);
     expect(consistencyWorkouts(sets, '2026-07-19')).toBe(2);
+  });
+});
+
+describe('plateau detection (D6)', () => {
+  const session = (day, ...sets) => ({ day, sets: sets.map(([weightKg, reps, addOn = false]) => ({ weightKg, reps, addOn })) });
+
+  it('reports the top effort as weight plus add-on state', () => {
+    expect(topEffort([{ weightKg: 40, reps: 8, addOn: false }, { weightKg: 50, reps: 5, addOn: true }]))
+      .toEqual({ weightKg: 50, addOn: true });
+    // Add-on only counts when it was engaged at the TOP weight.
+    expect(topEffort([{ weightKg: 50, reps: 5, addOn: false }, { weightKg: 40, reps: 8, addOn: true }]))
+      .toEqual({ weightKg: 50, addOn: false });
+  });
+
+  it('counts consecutive sessions at an identical top effort', () => {
+    const flat = [session('d1', [50, 10]), session('d2', [50, 8]), session('d3', [50, 12])];
+    expect(plateauStreak(flat)).toEqual({ streak: 3, weightKg: 50, addOn: false });
+  });
+
+  it('breaks the streak when the weight changes', () => {
+    const progressing = [session('d1', [50, 10]), session('d2', [50, 10]), session('d3', [52.5, 8])];
+    expect(plateauStreak(progressing).streak).toBe(1);
+  });
+
+  it('treats the same weight with and without the add-on as different loads (F11)', () => {
+    const mixed = [session('d1', [50, 10]), session('d2', [50, 10, true]), session('d3', [50, 10, true])];
+    expect(plateauStreak(mixed)).toEqual({ streak: 2, weightKg: 50, addOn: true });
+  });
+
+  it('nudges only from the third identical session', () => {
+    const two = [session('d1', [50, 10]), session('d2', [50, 10])];
+    const three = [...two, session('d3', [50, 10])];
+    expect(plateauNudge(two)).toBeNull();
+    expect(plateauNudge(three)).toEqual({ sessions: 3, weightKg: 50, addOn: false });
+  });
+
+  it('stays visible during today until today actually beats the plateau', () => {
+    const three = [session('d1', [50, 10]), session('d2', [50, 10]), session('d3', [50, 10])];
+    // A warm-up set today must not clear it (F12).
+    expect(plateauNudge(three, [{ weightKg: 20, reps: 10, addOn: false }])).toBeTruthy();
+    // Matching the plateau does not clear it either.
+    expect(plateauNudge(three, [{ weightKg: 50, reps: 10, addOn: false }])).toBeTruthy();
+    // Beating it does.
+    expect(plateauNudge(three, [{ weightKg: 52.5, reps: 6, addOn: false }])).toBeNull();
+  });
+
+  it('never nudges for pure bodyweight exercises (F13)', () => {
+    const bodyweight = [session('d1', [0, 12]), session('d2', [0, 12]), session('d3', [0, 12])];
+    expect(plateauStreak(bodyweight).streak).toBe(0);
+    expect(plateauNudge(bodyweight)).toBeNull();
+  });
+
+  it('handles mixed bodyweight and loaded sessions without false claims', () => {
+    // Latest session is loaded, earlier ones were bodyweight-only: no plateau.
+    const mixed = [session('d1', [0, 12]), session('d2', [0, 12]), session('d3', [5, 8])];
+    expect(plateauStreak(mixed).streak).toBe(1);
+  });
+
+  it('is safe on empty input', () => {
+    expect(plateauStreak([])).toEqual({ streak: 0, weightKg: null, addOn: false });
+    expect(plateauNudge([])).toBeNull();
   });
 });

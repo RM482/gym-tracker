@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { openDb } from '../js/db.js';
-import { createStore, ValidationError, MUSCLE_GROUPS } from '../js/store.js';
+import { createStore, ValidationError, MUSCLE_GROUPS, isBackupOverdue } from '../js/store.js';
 
 // Deterministic fake platform: controllable clock, sequential ids, fixed CEST offset.
 function fakePlatform(startMs = Date.UTC(2026, 6, 15, 10, 0)) {
@@ -315,5 +315,50 @@ describe('v2 fields: muscle group and machine add-on', () => {
     expect(old.muscleGroup).toBeNull();    // normalised
     const sets = await store.getSetsForExercise(ex.id);
     expect(sets.find((s) => s.id === 'old-set').addOn).toBe(false);
+  });
+});
+
+describe('backup reminder timing (plan §6.1)', () => {
+  const DAY = 86400000;
+  const now = Date.UTC(2026, 6, 21);
+  const base = { lastDataChangeAtMs: now - DAY, lastExportAtMs: null, firstDataChangeAtMs: now - 40 * DAY, backupBannerSnoozedAtMs: null };
+
+  it('does not nag a new owner the moment they save something', () => {
+    // The bug: with no export ever, the banner fired immediately and stayed.
+    expect(isBackupOverdue({ ...base, firstDataChangeAtMs: now - 60000, lastDataChangeAtMs: now }, now)).toBe(false);
+  });
+
+  it('nags once 30 days have passed with unexported changes', () => {
+    expect(isBackupOverdue(base, now)).toBe(true);
+  });
+
+  it('stays quiet when everything has been exported since the last change', () => {
+    expect(isBackupOverdue({ ...base, lastExportAtMs: now - 1000 }, now)).toBe(false);
+  });
+
+  it('counts the 30 days from the last export once one exists', () => {
+    const exportedRecently = { ...base, lastExportAtMs: now - 5 * DAY, lastDataChangeAtMs: now - DAY };
+    expect(isBackupOverdue(exportedRecently, now)).toBe(false);
+    const exportedLongAgo = { ...base, lastExportAtMs: now - 45 * DAY, lastDataChangeAtMs: now - DAY };
+    expect(isBackupOverdue(exportedLongAgo, now)).toBe(true);
+  });
+
+  it('respects the 7-day snooze', () => {
+    expect(isBackupOverdue({ ...base, backupBannerSnoozedAtMs: now - 2 * DAY }, now)).toBe(false);
+    expect(isBackupOverdue({ ...base, backupBannerSnoozedAtMs: now - 8 * DAY }, now)).toBe(true);
+  });
+
+  it('says nothing when there is no data at all', () => {
+    expect(isBackupOverdue({ lastDataChangeAtMs: null }, now)).toBe(false);
+  });
+
+  it('records the first data change as the baseline', async () => {
+    await store.addExercise('Row');
+    const settings = await store.getSettings();
+    expect(settings.firstDataChangeAtMs).toBe(platform.now());
+    const first = settings.firstDataChangeAtMs;
+    platform.advance(60000);
+    await store.addExercise('Squat');
+    expect((await store.getSettings()).firstDataChangeAtMs).toBe(first); // set once
   });
 });

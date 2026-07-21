@@ -2,6 +2,25 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-21 — Change set 1, slices 5–8: the four requested features ✅
+
+**Completed**
+- **Muscle-group sections on Home (D8).** Exercises appear under fixed-order headings (Chest → Full body → Other), with never-assigned exercises in a distinct **Ungrouped** section at the end — kept separate from a deliberately chosen "Other" (F5). Ordering within a section still follows the owner's recent/manual preference. Filtering searches across all groups and hides headings whose rows are all filtered out. **Manage deliberately stays flat**, showing the group as secondary text with a picker in the row menu, because grouped sections would conflict with its single global ▲▼ ordering (F4). Adding an exercise does *not* prompt for a group — new exercises land Ungrouped and are tagged from Manage when convenient.
+- **Already-logged-today marking.** Rows trained today are ticked and receded, with "logged today" in the accessible name rather than colour or an icon alone. They are **not** reordered: rows shifting under your thumb between sets would be worse than scanning past them. Derived from the session map Home already loads — no extra query (F6).
+- **Machine add-on toggle (D7).** A single toggle beside the weight steppers, carried through every save path: manual save uses the current state, quick-entry applies it to the whole batch, "Same as last time" copies the *source set's* state, and the shared set editor can correct it afterwards (F10). Sets render a `+on` badge everywhere they appear (log, today, history, day overview) via the shared formatter. The unknown kilograms are never invented into `weightKg`, and the dashboard now discloses that its weights and 1RM estimates exclude the add-on where any set used it (F11).
+- **Plateau nudge (D6).** "Top weight unchanged for 3 sessions" appears on the Log screen after three consecutive earlier sessions at an identical top effort. Evaluated over completed workout-days strictly before today, so a warm-up set cannot hide it before today's real top set exists; it clears once today beats the plateau (F12). Pure bodyweight exercises are skipped rather than measured on the wrong axis (F13). Because a set at 50 kg with the add-on is genuinely a heavier effort than 50 kg without, the comparison uses the pair (top weight, add-on state) — ignoring the flag would assert something false (F11).
+- **Backup reminder timing fixed** (owner-reported nag): it fired the instant anything was saved when the owner had never exported, so it showed permanently. It now counts 30 days from the last export, or from a new `firstDataChangeAtMs` baseline when there has never been one, and only when there are genuinely unexported changes — matching plan §6.1.
+
+**Bug caught by the new tests**: the Home rewrite initially dropped the exercise row's click handler, so tapping an exercise did nothing. Fixed and covered.
+
+**Tests run** (2026-07-21): Vitest 102/102 (new: plateau streak/nudge incl. add-on pairing, bodyweight and mixed-session skips, today-clears-it; backup-reminder timing incl. the never-exported case; v2 store fields); Playwright 21/21 (new `features.spec.js`: grouping order and filtering, flat Manage, done-today marking, add-on badge/persistence/dashboard caveat, and the nudge appearing then clearing). `check:precache` OK. Cache `gt-v0.15.0`.
+
+**Known issues**: none.
+
+**Next step**: owner device pass on iPhone — grouping, tagging, the add-on toggle mid-workout, and confirming the zoom fix by feel.
+
+**Departures from plan**: none. Scope was actively trimmed twice on review grounds: no `groupByMuscle` setting, and no forced muscle-group prompt after adding an exercise.
+
 ## 2026-07-21 — Change set 1, slice 4: v2 schema (muscle group + machine add-on) ✅ built, deploy held
 
 **Completed**
