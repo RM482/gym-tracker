@@ -23,11 +23,17 @@ test('database upgrade in another tab blocks stale interaction until reload', as
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Gym Tracker' })).toBeVisible();
 
-  await page.evaluate(() => new Promise((resolve, reject) => {
-    const request = indexedDB.open('gym-tracker', 2);
+  // Simulate the NEXT release upgrading the database from another tab. Read the
+  // current version from the app so this cannot rot when DB_VERSION moves.
+  const nextVersion = await page.evaluate(async () => {
+    const { DB_VERSION } = await import('/js/db.js');
+    return DB_VERSION + 1;
+  });
+  await page.evaluate((version) => new Promise((resolve, reject) => {
+    const request = indexedDB.open('gym-tracker', version);
     request.onsuccess = () => { request.result.close(); resolve(); };
     request.onerror = () => reject(request.error);
-  }));
+  }), nextVersion);
 
   await expect(page.getByText('The app was updated in another tab.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reload' })).toBeVisible();

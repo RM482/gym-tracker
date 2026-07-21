@@ -2,6 +2,24 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-21 — Change set 1, slice 4: v2 schema (muscle group + machine add-on) ✅ built, deploy held
+
+**Completed**
+- `DB_VERSION` raised to **2** with the first real migration: `Exercise.muscleGroup` (nullable — Ungrouped until assigned) and `SetEntry.addOn` (required boolean, default false). Records-only; no new stores or indexes.
+- v2 shapes are applied at every write, not just in the migration: `buildSet` always stamps `addOn`, `addExercise` accepts and stamps `muscleGroup`, `editSet` normalises `addOn` so it is correctable, and new `setMuscleGroup(id, group)` edits it. The curated taxonomy `MUSCLE_GROUPS` (D8) is validated on write; unknown values are rejected.
+- **Reads normalise rather than validate** the new fields: a record that somehow escaped the migration is corrected in memory instead of being counted "unreadable" and disappearing from the owner's history. Writes stay canonical, reads stay forgiving.
+- Analysis export carries `exerciseMuscleGroup` and `machineAddOn`, with guidance text stating explicitly that the add-on's kilograms are unknown and deliberately excluded from `weightKg`, so a reader cannot treat 50 kg with the add-on as the same load as 50 kg without.
+
+**Tests run** (2026-07-21): Vitest 86/86; Playwright 17/17; `check:precache` OK. New coverage includes the `MAINTENANCE.md`-mandated pair — a pure record-transform fixture (defaults, idempotency, non-boolean coercion) **and** a real v1 database upgraded in place with every record preserved including an archived exercise and a 0 kg bodyweight set — plus fresh-v2 bootstrap, a genuine v1-backup-restored-into-v2 round trip, referential integrity after migrating, and legacy records normalising on read. Version-dependent tests that hardcoded schema 1 were rebased on `DB_VERSION` so they cannot rot at the next bump.
+
+**Deploy held deliberately**: a database upgrade is one-way. This slice is committed but not pushed until the owner has exported a backup from their phone.
+
+**Known issues**: none.
+
+**Next step**: the feature UI on top of v2 — muscle-group grouping on Home, machine add-on toggle, done-today highlight, same-weight nudge.
+
+**Departures from plan**: none.
+
 ## 2026-07-21 — Change set 1, slice 3: data-safety prerequisites ✅
 
 Two latent defects found by Codex in already-shipped code. Both are harmless while only one schema version exists and become data-integrity bugs the moment a second one does, so they land *before* the v2 schema rather than alongside it.

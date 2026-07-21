@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { buildBackup, backupFilename, validateBackup, migrateBackup } from '../js/backup.js';
+import { DB_VERSION } from '../js/db.js';
 
 describe('backup export', () => {
   it('builds the versioned restorable envelope without changing records', () => {
     const snapshot = { exercises: [{ id: 'e' }], sets: [{ id: 's' }], settings: { id: 'app' }, unreadable: [{ store: 'sets' }] };
     const at = Date.UTC(2026, 6, 19);
-    expect(buildBackup(snapshot, at)).toEqual({ app: 'gym-tracker', schemaVersion: 1, exportedAtMs: at, ...snapshot });
+    expect(buildBackup(snapshot, at)).toEqual({ app: 'gym-tracker', schemaVersion: DB_VERSION, exportedAtMs: at, ...snapshot });
     expect(backupFilename(at)).toBe('gym-tracker-backup-2026-07-19.json');
   });
 
@@ -15,7 +16,7 @@ describe('backup export', () => {
     const good = { app: 'gym-tracker', schemaVersion: 1, exercises: [ex], sets: [set], settings: { id: 'app' } };
     expect(validateBackup(good).sets).toHaveLength(1);
     expect(() => validateBackup({ ...good, app: 'other' })).toThrow(/not a Gym Tracker/);
-    expect(() => validateBackup({ ...good, schemaVersion: 2 })).toThrow(/newer/);
+    expect(() => validateBackup({ ...good, schemaVersion: DB_VERSION + 1 })).toThrow(/newer/);
     expect(() => validateBackup({ ...good, exercises: [ex, ex] })).toThrow(/Duplicate exercise/);
     expect(() => validateBackup({ ...good, sets: [{ ...set, exerciseId: 'missing' }] })).toThrow(/missing exercise/);
   });
@@ -72,5 +73,47 @@ describe('backup migration replay (F7)', () => {
     const broken = { ...v1, schemaVersion: 1, sets: [{ ...set, reps: 0 }] };
     expect(() => validateBackup(broken)).toThrow(); // no migration table: still invalid
     expect(migrateBackup(broken, { table: repairing, target: 2 }).sets[0].reps).toBe(8);
+  });
+});
+
+// The real v1→v2 case the owner could hit: restoring a backup exported before
+// this change set into the upgraded app. Validation must run on the MIGRATED
+// records, and the restored data must come back with canonical v2 shapes.
+describe('restoring a genuine v1 backup into v2', () => {
+  const v1Backup = {
+    app: 'gym-tracker',
+    schemaVersion: 1,
+    exportedAtMs: Date.UTC(2026, 6, 19),
+    exercises: [
+      { id: 'e1', name: 'Row', sortOrder: 0, archivedAtMs: null, createdAtMs: 1, updatedAtMs: 1 },
+      { id: 'e2', name: 'Dip', sortOrder: 1, archivedAtMs: 99, createdAtMs: 1, updatedAtMs: 1 },
+    ],
+    sets: [
+      { id: 's1', exerciseId: 'e1', weightKg: 40, reps: 8, performedAtMs: 5, tzOffsetMin: 120, workoutDay: '2026-07-19', createdAtMs: 5, updatedAtMs: 5 },
+      { id: 's2', exerciseId: 'e2', weightKg: 0, reps: 12, performedAtMs: 6, tzOffsetMin: 120, workoutDay: '2026-07-19', createdAtMs: 6, updatedAtMs: 6 },
+    ],
+    settings: { id: 'app', coarseIncrementKg: 2.5 },
+  };
+
+  it('accepts it and fills in the v2 fields', () => {
+    const staged = validateBackup(v1Backup);
+    expect(staged.schemaVersion).toBe(DB_VERSION);
+    expect(staged.exercises.every((x) => x.muscleGroup === null)).toBe(true);
+    expect(staged.sets.every((s) => s.addOn === false)).toBe(true);
+    // Everything else survives, including the archived exercise and the
+    // bodyweight (0 kg) set.
+    expect(staged.exercises.find((x) => x.id === 'e2').archivedAtMs).toBe(99);
+    expect(staged.sets.find((s) => s.id === 's2').weightKg).toBe(0);
+  });
+
+  it('leaves the file on disk untouched', () => {
+    const before = structuredClone(v1Backup);
+    validateBackup(v1Backup);
+    expect(v1Backup).toEqual(before);
+  });
+
+  it('still enforces referential integrity after migrating', () => {
+    const broken = { ...v1Backup, sets: [{ ...v1Backup.sets[0], exerciseId: 'gone' }] };
+    expect(() => validateBackup(broken)).toThrow(/missing exercise/);
   });
 });

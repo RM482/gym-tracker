@@ -32,7 +32,8 @@ test('analysis export downloads readable JSON with the logged exercise joined in
   const backupDownload = await backupPromise;
   expect(backupDownload.suggestedFilename()).toMatch(/^gym-tracker-backup-\d{4}-\d{2}-\d{2}\.json$/);
   const backup = JSON.parse(await readFile(await backupDownload.path(), 'utf8'));
-  expect(backup).toMatchObject({ app: 'gym-tracker', schemaVersion: 1 });
+  expect(backup).toMatchObject({ app: 'gym-tracker' });
+  expect(backup.schemaVersion).toBeGreaterThanOrEqual(2);
   expect(backup.exercises[0].name).toBe('Bench press');
   expect(backup.sets[0]).toMatchObject({ weightKg: 42.5, reps: 6 });
 

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { openDb } from '../js/db.js';
-import { createStore, ValidationError } from '../js/store.js';
+import { createStore, ValidationError, MUSCLE_GROUPS } from '../js/store.js';
 
 // Deterministic fake platform: controllable clock, sequential ids, fixed CEST offset.
 function fakePlatform(startMs = Date.UTC(2026, 6, 15, 10, 0)) {
@@ -248,5 +248,72 @@ describe('settings and diagnostics', () => {
     const raw = await dbHandle.run('sets', 'readonly', (s) => s.sets.getAll());
     expect(raw).toHaveLength(2);
     dbHandle.close();
+  });
+});
+
+describe('v2 fields: muscle group and machine add-on', () => {
+  it('new exercises are Ungrouped unless a group is given, and the group is editable', async () => {
+    const plain = await store.addExercise('Row');
+    expect(plain.muscleGroup).toBeNull();
+    const tagged = await store.addExercise('Squat', { muscleGroup: 'Legs' });
+    expect(tagged.muscleGroup).toBe('Legs');
+
+    await store.setMuscleGroup(plain.id, 'Back');
+    expect((await store.getExercise(plain.id)).muscleGroup).toBe('Back');
+    // Clearing back to Ungrouped is allowed.
+    await store.setMuscleGroup(plain.id, null);
+    expect((await store.getExercise(plain.id)).muscleGroup).toBeNull();
+  });
+
+  it('rejects groups outside the curated taxonomy', async () => {
+    await expect(store.addExercise('Bad', { muscleGroup: 'Quads' })).rejects.toThrow(/Unknown muscle group/);
+    const ex = await store.addExercise('Fine');
+    await expect(store.setMuscleGroup(ex.id, 'quads')).rejects.toThrow(/Unknown muscle group/);
+    expect(MUSCLE_GROUPS).toContain('Full body');
+  });
+
+  it('records the add-on flag without touching the recorded weight', async () => {
+    const ex = await store.addExercise('Leg press');
+    const plain = await store.addSet({ exerciseId: ex.id, weightKg: 50, reps: 10 });
+    const withAddOn = await store.addSet({ exerciseId: ex.id, weightKg: 50, reps: 10, addOn: true });
+    expect(plain.addOn).toBe(false);
+    expect(withAddOn.addOn).toBe(true);
+    // The unknown increment is never invented into the weight (D7).
+    expect(withAddOn.weightKg).toBe(50);
+  });
+
+  it('carries the add-on flag through batches, edits and undo', async () => {
+    const ex = await store.addExercise('Chest press');
+    const batch = await store.addSets(ex.id, [
+      { weightKg: 40, reps: 8, addOn: true },
+      { weightKg: 40, reps: 8 },
+    ]);
+    expect(batch.map((s) => s.addOn)).toEqual([true, false]);
+
+    const corrected = await store.editSet(batch[1].id, { addOn: true });
+    expect(corrected.addOn).toBe(true);
+
+    const deleted = await store.deleteSet(corrected.id);
+    await store.restoreSet(deleted);
+    const [restored] = (await store.getSetsForExercise(ex.id)).filter((s) => s.id === corrected.id);
+    expect(restored.addOn).toBe(true);
+  });
+
+  it('normalises legacy records on read instead of hiding them', async () => {
+    const ex = await store.addExercise('Legacy');
+    // Write pre-v2 shapes straight past the store, as a missed migration would leave them.
+    const dbHandle = await openDb({ name: `store-test-${dbCount}` });
+    await dbHandle.run(['exercises', 'sets'], 'readwrite', async (s) => {
+      await s.exercises.put({ id: 'old-ex', name: 'Old', sortOrder: 9, archivedAtMs: null, createdAtMs: 1, updatedAtMs: 1 });
+      await s.sets.put({ id: 'old-set', exerciseId: ex.id, weightKg: 10, reps: 8, performedAtMs: platform.now(), tzOffsetMin: 120, workoutDay: store.getTodayDay(), createdAtMs: 1, updatedAtMs: 1 });
+    });
+    dbHandle.close();
+
+    const list = await store.listExercises();
+    const old = list.find((x) => x.id === 'old-ex');
+    expect(old).toBeTruthy();              // still visible, not quarantined
+    expect(old.muscleGroup).toBeNull();    // normalised
+    const sets = await store.getSetsForExercise(ex.id);
+    expect(sets.find((s) => s.id === 'old-set').addOn).toBe(false);
   });
 });

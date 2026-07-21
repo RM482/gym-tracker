@@ -14,6 +14,7 @@ export function buildAnalysisExport({ exercises, sets, exportedAtMs }) {
     return {
       exerciseId: set.exerciseId,
       exerciseName: exercise?.name ?? 'Unknown exercise',
+      exerciseMuscleGroup: exercise?.muscleGroup ?? null,
       exerciseArchived: Boolean(exercise?.archivedAtMs),
       workoutDay: set.workoutDay,
       performedAtLocal: localDateTime(set),
@@ -22,6 +23,7 @@ export function buildAnalysisExport({ exercises, sets, exportedAtMs }) {
       weightKg: set.weightKg,
       reps: set.reps,
       isBodyweight: set.weightKg === 0,
+      machineAddOn: set.addOn === true,
     };
   });
   const days = [...new Set(rows.map((row) => row.workoutDay))].sort();
@@ -30,7 +32,7 @@ export function buildAnalysisExport({ exercises, sets, exportedAtMs }) {
     format: 'llm-analysis',
     formatVersion: 1,
     exportedAtUtc: new Date(exportedAtMs).toISOString(),
-    guidance: 'Each row is one completed set. Weight is external load in kilograms; weightKg 0 means pure bodyweight. Workout days run from 03:00 to 03:00 local time.',
+    guidance: 'Each row is one completed set. Weight is external load in kilograms; weightKg 0 means pure bodyweight. Workout days run from 03:00 to 03:00 local time. machineAddOn true means the machine\'s small add-on weight was engaged; its kilogram value is unknown and is deliberately NOT included in weightKg, so a set with machineAddOn true is a heavier effort than the same weightKg without it. exerciseMuscleGroup is null when the exercise has not been categorised.',
     summary: {
       exerciseCount: new Set(rows.map((row) => row.exerciseId)).size,
       setCount: rows.length,
@@ -41,6 +43,7 @@ export function buildAnalysisExport({ exercises, sets, exportedAtMs }) {
     exercises: exercises.map((exercise) => ({
       exerciseId: exercise.id,
       exerciseName: exercise.name,
+      muscleGroup: exercise.muscleGroup ?? null,
       archived: Boolean(exercise.archivedAtMs),
     })),
     sets: rows,

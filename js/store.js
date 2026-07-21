@@ -7,10 +7,11 @@
 //
 // Store methods (all async):
 //   Exercises: listExercises({includeArchived, order}), getExercise(id),
-//     addExercise(name), renameExercise(id, name), archiveExercise(id),
+//     addExercise(name, {muscleGroup}), renameExercise(id, name),
+//     setMuscleGroup(id, group), archiveExercise(id),
 //     unarchiveExercise(id, {newName}), deleteExercise(id) [cascades sets],
 //     moveExercise(id, direction), countSets(exerciseId)
-//   Sets: addSet({exerciseId, weightKg, reps, performedAtMs?}),
+//   Sets: addSet({exerciseId, weightKg, reps, performedAtMs?, addOn?}),
 //     addSets(exerciseId, [{weightKg, reps}...]) [one transaction, ordered],
 //     editSet(id, patch), deleteSet(id) -> deleted record, restoreSet(record),
 //     getSetsForExercise(exerciseId), getTodaySets(exerciseId),
@@ -45,6 +46,11 @@ export function validateReps(r) {
   }
 }
 
+// Curated taxonomy (D8). A fixed list keeps grouping consistent despite
+// informal exercise names; `null` means Ungrouped (never assigned), which is
+// deliberately distinct from an explicitly chosen "Other".
+export const MUSCLE_GROUPS = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Full body', 'Other'];
+
 export function isValidExercise(x) {
   return x && typeof x.id === 'string' && typeof x.name === 'string'
     && Number.isInteger(x.sortOrder) && typeof x.createdAtMs === 'number';
@@ -57,13 +63,31 @@ export function isValidSet(s) {
     && typeof s.workoutDay === 'string' && typeof s.createdAtMs === 'number';
 }
 
+// v2 fields are normalised on read rather than validated into existence. A
+// record that somehow escaped the migration must never become "unreadable" and
+// vanish from the owner's history over a cosmetic field; writes are always
+// canonical (see buildSet / addExercise), reads are forgiving.
+export function normalizeExercise(x) {
+  return { ...x, muscleGroup: MUSCLE_GROUPS.includes(x.muscleGroup) ? x.muscleGroup : null };
+}
+
+export function normalizeSet(s) {
+  return { ...s, addOn: s.addOn === true };
+}
+
 export function createStore({ dbHandle, platform }) {
   let unreadable = 0;
 
-  function readAllValid(records, validator) {
+  function readAllValid(records, validator, normalize = (r) => r) {
     const good = records.filter(validator);
     unreadable += records.length - good.length; // excluded from queries, never deleted (§12)
-    return good;
+    return good.map(normalize);
+  }
+
+  function validateMuscleGroup(group) {
+    if (group === null || group === undefined) return null;
+    if (!MUSCLE_GROUPS.includes(group)) throw new ValidationError('Unknown muscle group', 'muscleGroup');
+    return group;
   }
 
   function validateName(name) {
@@ -84,7 +108,7 @@ export function createStore({ dbHandle, platform }) {
     if (ms > platform.now() + FUTURE_SLACK_MS) throw new ValidationError('That time is in the future', 'performedAtMs');
   }
 
-  function buildSet(exerciseId, { weightKg, reps, performedAtMs }) {
+  function buildSet(exerciseId, { weightKg, reps, performedAtMs, addOn = false }) {
     validateWeight(weightKg);
     validateReps(reps);
     validatePerformedAt(performedAtMs);
@@ -94,6 +118,7 @@ export function createStore({ dbHandle, platform }) {
       exerciseId,
       weightKg,
       reps,
+      addOn: addOn === true,
       performedAtMs,
       tzOffsetMin: tz,
       workoutDay: workoutDay(performedAtMs, tz),
@@ -112,7 +137,7 @@ export function createStore({ dbHandle, platform }) {
     // ---------- exercises ----------
 
     async listExercises({ includeArchived = false, order = 'manual' } = {}) {
-      const all = readAllValid(await dbHandle.run('exercises', 'readonly', (s) => s.exercises.getAll()), isValidExercise);
+      const all = readAllValid(await dbHandle.run('exercises', 'readonly', (s) => s.exercises.getAll()), isValidExercise, normalizeExercise);
       let list = includeArchived ? all : all.filter((x) => !x.archivedAtMs);
       list.sort((a, b) => a.sortOrder - b.sortOrder);
       if (order === 'recent') {
@@ -123,7 +148,7 @@ export function createStore({ dbHandle, platform }) {
     },
 
     async lastPerformedByExercise() {
-      const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.getAll()), isValidSet);
+      const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.getAll()), isValidSet, normalizeSet);
       const out = {};
       for (const s of sets) out[s.exerciseId] = Math.max(out[s.exerciseId] ?? 0, s.performedAtMs);
       return out;
@@ -131,16 +156,17 @@ export function createStore({ dbHandle, platform }) {
 
     async getExercise(id) {
       const x = await dbHandle.run('exercises', 'readonly', (s) => s.exercises.get(id));
-      return isValidExercise(x) ? x : null;
+      return isValidExercise(x) ? normalizeExercise(x) : null;
     },
 
-    async addExercise(name) {
+    async addExercise(name, { muscleGroup = null } = {}) {
       const n = validateName(name);
+      const group = validateMuscleGroup(muscleGroup);
       return dbHandle.run(['exercises', 'settings'], 'readwrite', async (s) => {
         const all = await s.exercises.getAll();
         assertNameFree(all, n);
         const maxOrder = Math.max(-1, ...all.filter(isValidExercise).map((x) => x.sortOrder));
-        const ex = { id: platform.uuid(), name: n, sortOrder: maxOrder + 1, archivedAtMs: null, createdAtMs: platform.now(), updatedAtMs: platform.now() };
+        const ex = { id: platform.uuid(), name: n, muscleGroup: group, sortOrder: maxOrder + 1, archivedAtMs: null, createdAtMs: platform.now(), updatedAtMs: platform.now() };
         await s.exercises.put(ex);
         await touchDataChange(s);
         return ex;
@@ -158,6 +184,20 @@ export function createStore({ dbHandle, platform }) {
         await s.exercises.put(ex);
         await touchDataChange(s);
         return ex;
+      });
+    },
+
+    // Muscle group is edited from Manage (D8); null clears it back to Ungrouped.
+    async setMuscleGroup(id, muscleGroup) {
+      const group = validateMuscleGroup(muscleGroup);
+      return dbHandle.run(['exercises', 'settings'], 'readwrite', async (s) => {
+        const ex = await s.exercises.get(id);
+        if (!ex) throw new ValidationError('Exercise not found');
+        ex.muscleGroup = group;
+        ex.updatedAtMs = platform.now();
+        await s.exercises.put(ex);
+        await touchDataChange(s);
+        return normalizeExercise(ex);
       });
     },
 
@@ -231,8 +271,8 @@ export function createStore({ dbHandle, platform }) {
 
     // ---------- sets ----------
 
-    async addSet({ exerciseId, weightKg, reps, performedAtMs = platform.now() }) {
-      const rec = buildSet(exerciseId, { weightKg, reps, performedAtMs });
+    async addSet({ exerciseId, weightKg, reps, performedAtMs = platform.now(), addOn = false }) {
+      const rec = buildSet(exerciseId, { weightKg, reps, performedAtMs, addOn });
       return dbHandle.run(['exercises', 'sets', 'settings'], 'readwrite', async (s) => {
         // FK check inside the same transaction that writes (plan §8.2).
         const ex = await s.exercises.get(exerciseId);
@@ -265,6 +305,7 @@ export function createStore({ dbHandle, platform }) {
         const next = { ...rec, ...patch };
         validateWeight(next.weightKg);
         validateReps(next.reps);
+        next.addOn = next.addOn === true; // correctable from the edit sheet (D7)
         if (next.performedAtMs !== rec.performedAtMs) {
           validatePerformedAt(next.performedAtMs);
           // §11.1: a timestamp edit re-derives the offset from the phone's
@@ -302,7 +343,7 @@ export function createStore({ dbHandle, platform }) {
     },
 
     async getSetsForExercise(exerciseId) {
-      const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.index('byExercise').getAll(exerciseId)), isValidSet);
+      const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.index('byExercise').getAll(exerciseId)), isValidSet, normalizeSet);
       return sets.sort(compareSets);
     },
 
@@ -332,7 +373,7 @@ export function createStore({ dbHandle, platform }) {
 
     // Most recent session per exercise INCLUDING today (Home row summaries, §6.1).
     async getLastSessionsByExercise() {
-      const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.getAll()), isValidSet);
+      const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.getAll()), isValidSet, normalizeSet);
       const byEx = {};
       for (const s of sets) {
         const cur = byEx[s.exerciseId];
@@ -344,7 +385,7 @@ export function createStore({ dbHandle, platform }) {
     },
 
     async getDaySets(day) {
-      const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.index('byDay').getAll(day)), isValidSet);
+      const sets = readAllValid(await dbHandle.run('sets', 'readonly', (s) => s.sets.index('byDay').getAll(day)), isValidSet, normalizeSet);
       return sets.sort(compareSets);
     },
 

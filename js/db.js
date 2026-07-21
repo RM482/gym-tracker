@@ -18,9 +18,21 @@
 // no invented history). The `records` functions are pure and reused by the
 // backup import path (backup.js, Phase 7).
 
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
-export const migrations = {}; // v1: empty by design
+// v1 → v2 (change set 1): adds Exercise.muscleGroup (nullable — Ungrouped until
+// the owner assigns one) and SetEntry.addOn (required boolean — whether the
+// machine's small add-on weight was engaged; its kg value is unknown by design,
+// see DECISIONS D7). Records only: no new stores or indexes are needed.
+// These same pure transforms are replayed by the backup import path.
+export const migrations = {
+  1: {
+    records: {
+      exercises: (x) => ({ ...x, muscleGroup: x.muscleGroup ?? null }),
+      sets: (s) => ({ ...s, addOn: s.addOn === true }),
+    },
+  },
+};
 
 export class DbBlockedError extends Error {
   constructor() { super('Another tab of this app is blocking a database upgrade'); }
