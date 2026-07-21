@@ -6,7 +6,7 @@
 // The database opens once at boot; open failure renders a plain-language
 // error screen instead of a white page (plan §12; full recovery matrix in Phase 8).
 
-import { openDb, deleteDb, DbBlockedError } from './db.js';
+import { openDb, deleteDb, DbBlockedError, DbTooOldError } from './db.js';
 import { createStore } from './store.js';
 import * as platform from './platform.js';
 import * as home from './ui/home.js';
@@ -101,19 +101,26 @@ function renderDbError(el, err, failureCount) {
   const h = document.createElement('h1');
   h.textContent = 'Can’t open your data';
   const p = document.createElement('p');
-  p.textContent = err instanceof DbBlockedError
-    ? 'Another tab or window of this app is in the way. Close other tabs of Gym Tracker, then try again.'
-    : 'Your workout data couldn’t be opened. This is usually temporary — try again. Your data has not been changed.';
+  if (err instanceof DbTooOldError) {
+    h.textContent = 'This app needs updating';
+    p.textContent = 'Your workout data was saved by a newer version of Gym Tracker than the one loaded here. Reload while online to update. Your data is safe and unchanged — do not clear anything.';
+  } else if (err instanceof DbBlockedError) {
+    p.textContent = 'Another tab or window of this app is in the way. Close other tabs of Gym Tracker, then try again.';
+  } else {
+    p.textContent = 'Your workout data couldn’t be opened. This is usually temporary — try again. Your data has not been changed.';
+  }
   const btn = document.createElement('button');
   btn.className = 'btn-primary';
-  btn.textContent = 'Try again';
+  btn.textContent = err instanceof DbTooOldError ? 'Reload to update' : 'Try again';
   btn.addEventListener('click', () => location.reload());
   card.append(h, p);
   el.append(card, btn);
 
-  // A blocked upgrade has a known non-destructive fix. Only expose reset after
-  // a different open failure has happened repeatedly in this browser session.
-  if (!(err instanceof DbBlockedError) && failureCount >= 2) {
+  // Both a blocked upgrade and out-of-date code have known non-destructive
+  // fixes, so neither may ever lead the owner toward erasing their data. Only
+  // expose reset after some other open failure has recurred in this session.
+  const hasSafeFix = err instanceof DbBlockedError || err instanceof DbTooOldError;
+  if (!hasSafeFix && failureCount >= 2) {
     const reveal = document.createElement('button');
     reveal.className = 'btn-secondary';
     reveal.textContent = 'Still can’t open it?';
@@ -186,8 +193,12 @@ async function render() {
   try {
     await ensureCtx();
   } catch (err) {
-    thisLoadFailureCount ??= recordOpenFailure();
-    renderDbError(el, err, thisLoadFailureCount);
+    // Only count failures with no known safe fix towards revealing reset, so a
+    // stale tab or an out-of-date shell can never inflate the counter and bring
+    // the destructive option within reach of a later, unrelated hiccup.
+    const hasSafeFix = err instanceof DbBlockedError || err instanceof DbTooOldError;
+    if (!hasSafeFix) thisLoadFailureCount ??= recordOpenFailure();
+    renderDbError(el, err, thisLoadFailureCount ?? 0);
     return;
   }
   // Build detached. The live screen is never cleared until a render is ready to

@@ -2,6 +2,23 @@
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
+## 2026-07-21 — Change set 1, slice 3: data-safety prerequisites ✅
+
+Two latent defects found by Codex in already-shipped code. Both are harmless while only one schema version exists and become data-integrity bugs the moment a second one does, so they land *before* the v2 schema rather than alongside it.
+
+**Completed**
+- **Backup restore now replays record migrations (F7).** `backup.js` previously validated an imported file against the *current* schema and inserted it unchanged — it never imported `migrations` at all, despite plan §10/§16 requiring migrate-then-validate. A genuine older backup would therefore have been restored missing any field a later migration adds, or rejected for lacking it. Import order is now: envelope + size caps → `migrateBackup()` replaying the same pure record transforms the database upgrade uses → full current-schema validation on the migrated result. `migrateBackup` copies records before transforming, so the caller's object is never mutated, and honours a step returning `null` as a record deletion.
+- **`VersionError` is now its own state (F9).** Old cached code opening a database a newer release already upgraded raised a raw `VersionError`, which the recovery screen counted as a generic open failure — and after two such failures it revealed the destructive "RESET MY DATA" path. That is a route from "your app is stale" to "erase your workouts". `db.js` now raises `DbTooOldError`; the recovery screen shows "This app needs updating / Reload to update", states the data is safe, and **never** exposes reset. Neither `DbTooOldError` nor `DbBlockedError` counts towards the failure counter, so a safe-fix state cannot inflate it and bring the destructive option within reach of a later unrelated hiccup.
+- `docs/MAINTENANCE.md` rollback recipe corrected: `DB_VERSION` must never be rolled backwards, because a database upgrade is one-way — revert behaviour, keep the version and its readers.
+
+**Tests run** (2026-07-21): Vitest 73/73 (new: 6 migration-replay cases incl. non-mutation, record deletion, refusing an unmigratable version, and proving validation runs on the migrated result; 2 `DbTooOldError` cases incl. data surviving untouched); Playwright 17/17; `check:precache` OK. Cache `gt-v0.13.0`.
+
+**Known issues**: none.
+
+**Next step**: v2 schema — `Exercise.muscleGroup` (nullable, curated taxonomy) and `SetEntry.addOn` (required boolean, default false) in one migration, with the `MAINTENANCE.md`-mandated fixture + real upgrade tests, and v2 shapes applied to constructors, validators and fresh-install bootstrap.
+
+**Departures from plan**: none — this slice closes gaps against the approved plan rather than deviating from it.
+
 ## 2026-07-21 — Change set 1, slices 1–2: duplicate-list bug + zoom on tap ✅
 
 **Completed**

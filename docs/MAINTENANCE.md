@@ -44,6 +44,8 @@ Reset deletes only this browser's Gym Tracker database. It cannot recover data t
 
 `git revert` the bad commit (keeps history), bump `CACHE_VERSION` again, push.
 
+**Never roll `DB_VERSION` backwards.** A database upgrade is one-way: once a phone has opened the app at a newer schema version, its stored data is at that version permanently. Deploying code with a lower `DB_VERSION` makes every upgraded device fail to open its data (`VersionError`). If a release that raised `DB_VERSION` turns out to be bad, revert the *behaviour* but keep `DB_VERSION` at the new number and keep the migration and readers in place. The app now recognises this situation and tells the owner to reload rather than offering to erase anything — but the deploy is still broken for them until fixed, so check `DB_VERSION` before pushing any revert.
+
 ## Repository safety
 
 GitHub account: keep 2-factor authentication on; the `main` branch is the deployed app.

@@ -26,6 +26,15 @@ export class DbBlockedError extends Error {
   constructor() { super('Another tab of this app is blocking a database upgrade'); }
 }
 
+// Raised when THIS code is older than the data on disk: a stale cached shell
+// (or an attempted rollback) opening a database already upgraded by a newer
+// release. IndexedDB reports this as VersionError. It is emphatically not
+// corruption — the fix is to load the newer app, never to erase data — so it
+// is a distinct type that the recovery UI must never treat as a failed open.
+export class DbTooOldError extends Error {
+  constructor() { super('This app version is older than the data stored on this device'); }
+}
+
 function bootstrap(db) {
   const sets = db.createObjectStore('sets', { keyPath: 'id' });
   sets.createIndex('byExercise', 'exerciseId');
@@ -73,7 +82,10 @@ export function openDb({ name = 'gym-tracker', onVersionChange = null, _version 
       db.onversionchange = () => { db.close(); onVersionChange?.(); };
       resolve(makeHandle(db));
     };
-    req.onerror = () => reject(req.error);
+    req.onerror = () => {
+      const err = req.error;
+      reject(err?.name === 'VersionError' ? new DbTooOldError() : err);
+    };
   });
 }
 

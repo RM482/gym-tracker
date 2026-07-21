@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect } from 'vitest';
-import { openDb, DB_VERSION } from '../js/db.js';
+import { openDb, DB_VERSION, DbTooOldError, DbBlockedError } from '../js/db.js';
 
 let n = 0;
 const fresh = () => `db-test-${++n}`;
@@ -81,5 +81,31 @@ describe('migration machinery (synthetic test-only steps — v1 ships none, plan
     const h2 = await openDb({ name, _version: 2, _migrations: { 1: {} } });
     expect(notified).toBe(true);
     h2.close();
+  });
+});
+
+// Codex F9: old cached code meeting a database a newer release already upgraded
+// gets a VersionError. That is not corruption — surfacing it as a generic open
+// failure could walk the owner toward the destructive reset screen.
+describe('old code opening a newer database (F9)', () => {
+  it('reports DbTooOldError and leaves the data untouched', async () => {
+    const name = fresh();
+    // Newer release upgrades the database.
+    const newer = await openDb({ name, _version: 2, _migrations: { 1: {} } });
+    await newer.run('exercises', 'readwrite', (s) => s.exercises.put({ id: 'e1', name: 'Row', sortOrder: 0, createdAtMs: 1 }));
+    newer.close();
+
+    // Stale shell still on v1 tries to open it.
+    await expect(openDb({ name, _version: 1 })).rejects.toBeInstanceOf(DbTooOldError);
+
+    // Data survives untouched and is readable again by current code.
+    const again = await openDb({ name, _version: 2, _migrations: { 1: {} } });
+    expect(await again.run('exercises', 'readonly', (s) => s.exercises.getAll())).toHaveLength(1);
+    again.close();
+  });
+
+  it('is distinct from a blocked upgrade', async () => {
+    expect(new DbTooOldError()).not.toBeInstanceOf(DbBlockedError);
+    expect(new DbTooOldError().message).toMatch(/older than the data/);
   });
 });
