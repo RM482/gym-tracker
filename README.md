@@ -2,7 +2,7 @@
 
 A very fast, local-first gym logging app for one user's iPhone, built as an installable web app (PWA). Log a set in a few taps, instantly see what you lifted last time, and watch progress on a simple dashboard. Works fully offline; all data stays on the phone.
 
-**Status: in use.** v1 plus change set 1 (muscle groups, done-today marking, the machine add-on flag and the plateau nudge) are deployed. Real-device checks on the owner's iPhone are the one thing outstanding.
+**Status: in use.** v1, change set 1 (muscle groups, done-today marking, the machine add-on flag and the plateau nudge) and change set 2 (Home-search fix, Progress-tab search, a live estimated-1RM readout, and rename/group from inside an exercise) are deployed. Real-device checks on the owner's iPhone are the one thing outstanding.
 
 **Picking this up after a break? Read `docs/HANDOFF.md` first.**
 

@@ -1,15 +1,15 @@
 # Handoff — resume here
 
-Last updated: 2026-07-21, end of change set 1. Written so Claude, Codex, or the owner can pick this up cold.
+Last updated: 2026-07-25, end of change set 2. Written so Claude, Codex, or the owner can pick this up cold.
 
 ## Where things stand
 
-The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 (the owner's first round of real-use feedback) shipped on 2026-07-21.
+The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 (first round of real-use feedback) shipped on 2026-07-21; change set 2 (second round) shipped on 2026-07-25.
 
 - Live: <https://rm482.github.io/gym-tracker/> — repo `RM482/gym-tracker`, GitHub Pages from `main`. Push to `main` = deploy.
-- Working tree clean, `main` in sync with `origin/main`, last commit `4ff300e`.
-- Service-worker cache `gt-v0.16.0`. **`DB_VERSION = 2`.**
-- Tests green: **Vitest 116/116, Playwright 22/22, `check:precache` OK.**
+- Working tree clean, `main` in sync with `origin/main`; change set 2 shipped in commit `8d1c250`.
+- Service-worker cache `gt-v0.17.0`. **`DB_VERSION = 2`** (unchanged — change set 2 touched no schema).
+- Tests green: **Vitest 117/117, Playwright 26/26, `check:precache` OK.**
 
 ```bash
 npm install          # once
@@ -21,16 +21,21 @@ npm run serve        # http://localhost:4173
 
 ## The one thing outstanding
 
-**The owner's device pass on their iPhone.** Nothing is blocked on code; this is the acceptance step. Asked of them:
+**The owner's device pass on their iPhone.** Nothing is blocked on code; this is the acceptance step. Carried over from change set 1:
 
 1. Tag a few exercises (Manage → ⋯ → Muscle group). They start Ungrouped by design.
 2. Use the machine add-on toggle mid-workout; check the `+on` badge reads well in history.
 3. Confirm zoom-on-tap is genuinely gone while tapping quickly between sets.
 4. Watch for the duplicate list by switching away from the app and back repeatedly (the old trigger).
 
+Added by change set 2:
+
+5. Confirm the Home filter box works again (needs >12 exercises to appear) — this is the reported regression.
+6. Try the new Progress-tab search, the live estimated-1RM readout on the entry screen, and Rename / Muscle group from inside an exercise (the ✎ header button).
+
 Also still unverified on a real device, from the original plan's device script: Add to Home Screen, dictation into quick entry, the Files/share sheet for export, force-quit persistence, and the update toast on a live deploy. Browser automation cannot truthfully cover these.
 
-When feedback arrives, treat it as change set 2 and follow the same process (below).
+When the next round of feedback arrives, treat it as change set 3 and follow the same process (below).
 
 ## What changed in change set 1
 
@@ -48,6 +53,19 @@ Owner reported six things; all six are done. Full reasoning in `docs/reviews/` a
 Plus, unprompted but flagged to and approved by the owner: the backup reminder no longer fires the instant anything is saved when they have never exported (`firstDataChangeAtMs` baseline, plan §6.1 timing).
 
 Two **pre-existing latent defects** in shipped code were found during review and fixed as prerequisites of the schema change: backup restore never replayed record migrations, and `VersionError` (stale code meeting newer data) was unhandled and could route the owner toward the destructive reset screen.
+
+## What changed in change set 2
+
+Owner reported one regression and asked for three additions; all four done. No schema change. Full reasoning in `docs/PROGRESS.md` (2026-07-25 entry).
+
+| # | Item | Outcome |
+|---|------|---------|
+| 1 | Home search stopped working | Fixed. The detached-container render (`333474b`) left the filter's `input` handler re-querying a container whose children had already been moved into `#app`, so it matched nothing. It now holds the row/heading **elements**, which stay live after the move. Regression test seeds 13 exercises (the box only appears past 12, which is why no test caught it). |
+| 2 | Search in the Progress tab | Type-ahead box narrows the exercise picker; options are rebuilt from matches (iOS Safari ignores `display:none` on `<option>`); a miss reports it. |
+| 3 | Reflect heavier-but-fewer-reps as progress | Live estimated 1-rep max (Epley) on the entry screen, compared to last session's best (▲/=/▼). Recorded kg only, add-on flagged not compared (D7); shown ≤12 reps. New pure helper `bestE1rm` in `stats.js`. |
+| 4 | Rename / group from inside an exercise | ✎ menu in the entry-screen header. Shares one implementation with Manage via new `js/ui/exercise-actions.js` (added to `PRECACHE`). |
+
+**Process note (deviation):** unlike change set 1, this round was implemented and deployed directly, without a design brief or an independent Codex review round. It is small, self-contained and fully tested, but if the owner wants the same review gate applied retrospectively, run Codex read-only over the change-set-2 diff per the process below.
 
 ## Decisions that bind future work
 
