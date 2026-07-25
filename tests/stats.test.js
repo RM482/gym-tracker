@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  workoutDay, compareSets, dayDurationMs, groupDaySets, epley,
+  workoutDay, compareSets, dayDurationMs, groupDaySets, epley, bestE1rm,
   exerciseProgress, filterSetsByPeriod, consistencyWorkouts,
   topEffort, plateauStreak, plateauNudge, beatsBaseline,
 } from '../js/stats.js';
@@ -88,6 +88,14 @@ describe('dashboard metrics (plan §11.2)', () => {
     expect(result.days[1].bestE1rmKg).toBeCloseTo(79.1667, 3);
     expect(result.prs.heaviest).toEqual({ value: 65, day: '2026-07-01' });
     expect(result.prs.reps).toEqual({ value: 20, day: '2026-07-08' });
+  });
+
+  it('bestE1rm compares heavier/fewer against lighter/more and skips ineligible sets', () => {
+    // 100×3 (Epley 110) beats 90×5 (Epley 105): heavier but fewer reps is stronger here.
+    expect(bestE1rm([set('a', '2026-07-01', 90, 5), set('b', '2026-07-01', 100, 3)])).toBeCloseTo(110);
+    // Bodyweight and > 12-rep sets are ineligible; nothing left means null.
+    expect(bestE1rm([set('a', '2026-07-01', 0, 8), set('b', '2026-07-01', 50, 20)])).toBe(null);
+    expect(bestE1rm([])).toBe(null);
   });
 
   it('uses reps mode only when every set is zero-weight', () => {

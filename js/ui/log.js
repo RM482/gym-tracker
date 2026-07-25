@@ -6,10 +6,11 @@
 //
 // Exported for unit tests: pickRepeatSet(prevSets, todayCount).
 
-import { header, toast, formatDayLabel } from './components.js';
-import { plateauNudge } from '../stats.js';
+import { header, toast, formatDayLabel, menuSheet } from './components.js';
+import { plateauNudge, epley, bestE1rm } from '../stats.js';
 import { parseQuickEntry } from '../parser.js';
 import { openSetEditor } from './set-editor.js';
+import { renameExerciseFlow, muscleGroupSheet } from './exercise-actions.js';
 import * as platform from '../platform.js';
 
 // Kept in module memory so a sentence survives in-app navigation, but not app
@@ -50,7 +51,22 @@ export async function render(el, { exerciseId }, ctx) {
   el.appendChild(header({
     title: ex.name,
     back: '#/',
-    actions: [{ icon: '🕐', label: 'History', onTap: () => { location.hash = `#/history/${ex.id}`; } }],
+    actions: [
+      // Rename and re-group without walking back to the main menu (owner
+      // feedback). Shares one implementation with Manage via exercise-actions.
+      {
+        icon: '✎',
+        label: 'Rename or group this exercise',
+        onTap: () => menuSheet({
+          title: ex.name,
+          items: [
+            { label: 'Rename', onTap: () => renameExerciseFlow(ex, ctx) },
+            { label: `Muscle group: ${ex.muscleGroup ?? 'Ungrouped'}`, onTap: () => muscleGroupSheet(ex, ctx) },
+          ],
+        }),
+      },
+      { icon: '🕐', label: 'History', onTap: () => { location.hash = `#/history/${ex.id}`; } },
+    ],
   }));
 
   const today = ctx.store.getTodayDay();
@@ -139,11 +155,42 @@ export async function render(el, { exerciseId }, ctx) {
 
   const readWeight = () => parseFloat(String(weightInput.value).replace(',', '.'));
   const readReps = () => parseInt(String(repsInput.value), 10);
+
+  // Live estimated 1-rep max (Epley) for the set being entered. It turns
+  // "heavier but fewer reps" into one comparable number, so the owner can see
+  // whether such a set is actually stronger than last time (owner feedback).
+  // Recorded kg only: the machine add-on's weight is unknown (D7), so an add-on
+  // set is flagged and not compared. Epley is unreliable past ~12 reps, so the
+  // readout is shown only up to 12 — matching the dashboard's PR eligibility.
+  const prevBest = prev ? bestE1rm(prev.sets) : null;
+  const round1 = (n) => Number(n.toFixed(1));
+  const e1rmLine = document.createElement('p');
+  e1rmLine.className = 'e1rm-readout';
+  e1rmLine.setAttribute('role', 'status');
+  const paintE1rm = () => {
+    const w = readWeight();
+    const r = readReps();
+    if (!(w > 0) || !Number.isInteger(r) || r < 1 || r > 12) { e1rmLine.textContent = ''; return; }
+    const est = epley(w, r);
+    if (addOn) { e1rmLine.textContent = `Est. 1-rep max ≈ ${round1(est)} kg · add-on weight not counted`; return; }
+    let text = `Est. 1-rep max ≈ ${round1(est)} kg`;
+    if (prevBest != null) {
+      const diff = est - prevBest;
+      if (Math.abs(diff) < 0.05) text += ' · same as last time';
+      else if (diff > 0) text += ` · ▲ stronger than last time (${round1(prevBest)} kg)`;
+      else text += ` · ▼ below last time (${round1(prevBest)} kg)`;
+    }
+    e1rmLine.textContent = text;
+  };
+  weightInput.addEventListener('input', paintE1rm);
+  repsInput.addEventListener('input', paintE1rm);
+
   const bump = (input, delta, read, min, max) => {
     const cur = read();
     const next = Math.min(max, Math.max(min, (Number.isFinite(cur) ? cur : 0) + delta));
     input.value = String(Math.round(next * 100) / 100);
     err.textContent = '';
+    paintE1rm();
   };
 
   el.appendChild(stepperRow('Weight (kg)', [
@@ -161,7 +208,7 @@ export async function render(el, { exerciseId }, ctx) {
     addOnToggle.classList.toggle('addon-on', addOn);
     addOnToggle.setAttribute('aria-pressed', String(addOn));
   };
-  addOnToggle.addEventListener('click', () => { addOn = !addOn; paintAddOn(); });
+  addOnToggle.addEventListener('click', () => { addOn = !addOn; paintAddOn(); paintE1rm(); });
   paintAddOn();
   el.appendChild(addOnToggle);
 
@@ -171,6 +218,8 @@ export async function render(el, { exerciseId }, ctx) {
     stepBtn('+1', () => bump(repsInput, 1, readReps, 1, 200)),
   ]));
   el.appendChild(err);
+  el.appendChild(e1rmLine);
+  paintE1rm();
 
   // Shared write-pending guard: the ONLY duplicate protection (§12).
   let pending = false;

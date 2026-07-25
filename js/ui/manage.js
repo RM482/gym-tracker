@@ -3,7 +3,8 @@
 // naming the exact set count; archive is always offered as the safe default.
 
 import { header, promptSheet, confirmSheet, menuSheet, toast } from './components.js';
-import { ValidationError, MUSCLE_GROUPS } from '../store.js';
+import { ValidationError } from '../store.js';
+import { renameExerciseFlow, muscleGroupSheet } from './exercise-actions.js';
 
 let showArchived = false; // session-level toggle
 
@@ -109,15 +110,7 @@ function optionsMenu(ex, ctx) {
     items: [
       {
         label: 'Rename',
-        onTap: () => promptSheet({
-          title: `Rename “${ex.name}”`,
-          label: 'New name',
-          value: ex.name,
-          async onSubmit(value) {
-            await ctx.store.renameExercise(ex.id, value);
-            ctx.refresh();
-          },
-        }),
+        onTap: () => renameExerciseFlow(ex, ctx),
       },
       {
         label: `Muscle group: ${ex.muscleGroup ?? 'Ungrouped'}`,
@@ -132,24 +125,6 @@ function optionsMenu(ex, ctx) {
         },
       },
       { label: 'Delete permanently…', danger: true, onTap: () => deleteFlow(ex, ctx) },
-    ],
-  });
-}
-
-// Assigning a group is a one-tap choice from the curated taxonomy (D8);
-// "Ungrouped" clears it again.
-function muscleGroupSheet(ex, ctx) {
-  menuSheet({
-    title: `Muscle group for “${ex.name}”`,
-    items: [
-      ...MUSCLE_GROUPS.map((group) => ({
-        label: group === ex.muscleGroup ? `${group} ✓` : group,
-        onTap: async () => { await ctx.store.setMuscleGroup(ex.id, group); ctx.refresh(); },
-      })),
-      {
-        label: 'Ungrouped',
-        onTap: async () => { await ctx.store.setMuscleGroup(ex.id, null); ctx.refresh(); },
-      },
     ],
   });
 }

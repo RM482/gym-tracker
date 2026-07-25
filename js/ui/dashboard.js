@@ -22,16 +22,36 @@ export async function render(el, params, ctx) {
   }
   if (!exercises.some((exercise) => exercise.id === selectedExerciseId)) selectedExerciseId = exercises[0].id;
 
-  const controls = document.createElement('div');
-  controls.className = 'dashboard-controls';
   const exerciseSelect = document.createElement('select');
   exerciseSelect.setAttribute('aria-label', 'Exercise');
-  for (const exercise of exercises) {
-    const option = document.createElement('option');
-    option.value = exercise.id; option.textContent = exercise.name;
-    option.selected = exercise.id === selectedExerciseId;
-    exerciseSelect.appendChild(option);
+  // Rebuilds the picker's options from a filtered list. Options are recreated
+  // rather than hidden because iOS Safari's native select wheel ignores
+  // display:none on <option>, so hiding would not actually shorten the picker.
+  const fillOptions = (list) => {
+    exerciseSelect.replaceChildren();
+    for (const exercise of list) {
+      const option = document.createElement('option');
+      option.value = exercise.id; option.textContent = exercise.name;
+      option.selected = exercise.id === selectedExerciseId;
+      exerciseSelect.appendChild(option);
+    }
+  };
+  fillOptions(exercises);
+
+  // A type-ahead search over the exercise picker (owner feedback): scrolling a
+  // long dropdown to find one lift is slow. Shown once there is more than one
+  // exercise to choose between.
+  const search = exercises.length > 1 ? document.createElement('input') : null;
+  if (search) {
+    search.className = 'filter-input';
+    search.type = 'search';
+    search.placeholder = 'Search exercise';
+    search.setAttribute('aria-label', 'Search exercise');
+    el.appendChild(search);
   }
+
+  const controls = document.createElement('div');
+  controls.className = 'dashboard-controls';
   const periodSelect = document.createElement('select');
   periodSelect.setAttribute('aria-label', 'Period');
   for (const [value, label] of [['8w', '8 weeks'], ['6m', '6 months'], ['all', 'All']]) {
@@ -113,5 +133,19 @@ export async function render(el, params, ctx) {
   };
   exerciseSelect.addEventListener('change', draw);
   periodSelect.addEventListener('change', draw);
+  search?.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    const matches = exercises.filter((exercise) => exercise.name.toLowerCase().includes(q));
+    if (!matches.length) {
+      fillOptions([]);
+      body.replaceChildren(placeholder(`No exercise matches “${search.value.trim()}”.`));
+      return;
+    }
+    // Keep the current exercise selected while it still matches; otherwise jump
+    // to the first match so the chart always reflects a visible option.
+    if (!matches.some((exercise) => exercise.id === selectedExerciseId)) selectedExerciseId = matches[0].id;
+    fillOptions(matches);
+    draw();
+  });
   await draw();
 }

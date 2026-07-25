@@ -453,6 +453,10 @@ button:disabled { cursor: default; }
 /* Dashboard caveat where add-on sets exist (F11) */
 .addon-caveat { color: var(--text-soft); font-size: 0.85rem; margin-top: 0.4rem; }
 
+/* Live estimated 1-rep max on the log screen (owner feedback) */
+.e1rm-readout { color: var(--text-soft); font-size: 0.9rem; margin: 0.15rem 0 0.6rem; min-height: 1.2em; }
+.e1rm-readout:empty { margin: 0; }
+
 /* Available to screen readers, invisible on screen. */
 .visually-hidden {
   position: absolute;

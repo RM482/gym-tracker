@@ -39,6 +39,87 @@ test('exercises group by muscle, ungrouped last, and filtering hides empty headi
   await expect(page.locator('.list-row', { hasText: 'Weird machine' })).toContainText('Ungrouped');
 });
 
+test('the home filter box appears past 12 exercises and narrows the list', async ({ page }) => {
+  await page.goto('/');
+  // Seed 13 exercises straight into the store so the filter box (shown only past
+  // 12) actually appears — the path the detached-container render once broke.
+  await page.evaluate(async () => {
+    const { openDb } = await import('/js/db.js');
+    const { createStore } = await import('/js/store.js');
+    const platform = await import('/js/platform.js');
+    const db = await openDb();
+    const store = createStore({ dbHandle: db, platform });
+    const names = ['Bench press', 'Squat', 'Deadlift', 'Overhead press', 'Row',
+      'Lat pulldown', 'Leg press', 'Biceps curl', 'Triceps pushdown', 'Calf raise',
+      'Plank', 'Face pull', 'Hip thrust'];
+    for (const name of names) await store.addExercise(name);
+    db.close();
+  });
+  await page.reload();
+
+  const filter = page.getByLabel('Filter exercises');
+  await expect(filter).toBeVisible();
+  await filter.fill('squat');
+  await expect(page.locator('.list-row', { hasText: 'Squat' })).toBeVisible();
+  await expect(page.locator('.list-row', { hasText: 'Bench press' })).toBeHidden();
+  // Clearing the box brings the whole list back.
+  await filter.fill('');
+  await expect(page.locator('.list-row', { hasText: 'Bench press' })).toBeVisible();
+});
+
+test('an exercise can be renamed and grouped from its own entry screen', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.chip', { hasText: 'Bench press' }).click();
+  await page.locator('.list-row', { hasText: 'Bench press' }).click();
+
+  // Rename without walking back to the main menu.
+  await page.getByRole('button', { name: 'Rename or group this exercise' }).click();
+  await page.locator('.sheet').getByRole('button', { name: 'Rename', exact: true }).click();
+  await page.locator('.sheet input').fill('Incline press');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('.screen-header h1')).toHaveText('Incline press');
+
+  // Group it from the same screen.
+  await page.getByRole('button', { name: 'Rename or group this exercise' }).click();
+  await page.getByRole('button', { name: /^Muscle group:/ }).click();
+  await page.locator('.sheet').getByRole('button', { name: 'Chest', exact: true }).click();
+
+  // Back on Home it now sits under the Chest heading, with its new name.
+  await page.locator('button[aria-label="Back"]').click();
+  await expect(page.locator('.group-heading', { hasText: 'Chest' })).toBeVisible();
+  await expect(page.locator('.list-row', { hasText: 'Incline press' })).toBeVisible();
+});
+
+test('the entry screen shows a live estimated 1-rep max and compares it to last time', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.chip', { hasText: 'Bench press' }).click();
+
+  // Seed a previous session: best set 60×5 → Epley 70 kg.
+  const exerciseId = await page.evaluate(async () => {
+    const { openDb } = await import('/js/db.js');
+    const { createStore } = await import('/js/store.js');
+    const platform = await import('/js/platform.js');
+    const db = await openDb();
+    const store = createStore({ dbHandle: db, platform });
+    const [ex] = await store.listExercises();
+    await store.addSet({ exerciseId: ex.id, weightKg: 60, reps: 5, performedAtMs: Date.now() - 3 * 86400000 });
+    db.close();
+    return ex.id;
+  });
+
+  await page.goto(`/#/log/${exerciseId}`);
+  const readout = page.locator('.e1rm-readout');
+  // A heavier-but-fewer set (80×3 → Epley 88) reads as stronger than last time.
+  await page.getByLabel('Weight in kilograms').fill('80');
+  await page.getByLabel('Repetitions').fill('3');
+  await expect(readout).toContainText('Est. 1-rep max ≈ 88 kg');
+  await expect(readout).toContainText('stronger than last time');
+  // A lighter set that estimates below last time's best is flagged as such.
+  await page.getByLabel('Weight in kilograms').fill('50');
+  await page.getByLabel('Repetitions').fill('5');
+  await expect(readout).toContainText('below last time');
+});
+
 test('exercises logged today are marked so the remaining ones stand out', async ({ page }) => {
   await page.goto('/');
   await page.locator('.chip', { hasText: 'Bench press' }).click();
@@ -125,4 +206,24 @@ test('the plateau nudge appears after three identical sessions and clears when b
   await page.getByLabel('Weight in kilograms').fill('62.5');
   await page.getByRole('button', { name: 'Save set' }).click();
   await expect(page.locator('.nudge')).toHaveCount(0);
+});
+
+test('the Progress tab has a search that narrows the exercise picker', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.chip', { hasText: 'Bench press' }).click();
+  await addExercise(page, 'Squat');
+  await addExercise(page, 'Deadlift');
+
+  await page.getByRole('button', { name: 'Dashboard' }).click();
+  const search = page.getByLabel('Search exercise', { exact: true });
+  await expect(search).toBeVisible();
+
+  const options = page.getByLabel('Exercise', { exact: true }).locator('option');
+  await expect(options).toHaveCount(3);
+  await search.fill('squ');
+  await expect(options).toHaveCount(1);
+  await expect(options).toHaveText('Squat');
+  // A miss reports it rather than silently showing everything.
+  await search.fill('zzz');
+  await expect(page.getByText(/No exercise matches/)).toBeVisible();
 });

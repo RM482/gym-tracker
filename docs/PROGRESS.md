@@ -1,10 +1,28 @@
 # Progress log
 
-> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 1 complete and
-> deployed (`gt-v0.16.0`, `DB_VERSION = 2`), tests green (Vitest 116, Playwright 22), working tree clean.
-> The only thing outstanding is the owner's device pass on their iPhone.
+> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 2 (four owner-feedback
+> items) implemented locally at `gt-v0.17.0` (`DB_VERSION = 2`, unchanged), tests green (Vitest 117, Playwright 26).
+> Not yet deployed; the owner's device pass on their iPhone is still outstanding.
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
+
+## 2026-07-25 — Change set 2: four owner-feedback items ✅
+
+Owner reported the Home search had stopped working and asked for four things. All implemented; no schema change.
+
+**Completed**
+- **Fixed the Home filter regression.** When rendering moved to building each screen in a detached container and moving its children into `#app` (commit `333474b`), the filter's `input` handler still re-queried that container — which is empty after the move — so typing matched nothing. The filter is now wired to the captured row/heading **elements**, which stay live after the move. The existing filter test never created >12 exercises (the threshold for the box to appear), so it never exercised this path; a new browser test now seeds 13 and asserts narrowing + clearing.
+- **Search on the Progress tab.** A type-ahead box narrows the exercise picker (shown once there is more than one exercise). Options are rebuilt from the matches rather than hidden, because iOS Safari's native `<select>` wheel ignores `display:none` on `<option>`. A miss reports "No exercise matches …" instead of silently showing everything.
+- **"Heavier but fewer reps" now reads as a single strength number.** The entry screen shows a live estimated 1-rep max (Epley, the same formula the dashboard already uses) and compares it to the previous session's best: ▲ stronger / same / ▼ below. Recorded kg only, so an add-on set is flagged and not compared (D7); shown only up to 12 reps, where Epley is reliable. New pure helper `bestE1rm` in `stats.js`.
+- **Rename and re-group from inside the exercise.** The entry screen header gains an "✎" menu (Rename / Muscle group), so neither action needs a trip back to Manage. Both flows live in a new `js/ui/exercise-actions.js` shared by Manage and the entry screen, so there is one source of truth.
+
+**Tests run** (2026-07-25): Vitest 117/117, Playwright 26/26, `check:precache` OK (25 files). New coverage: Home filter past 12 exercises, Progress-tab search (narrow + miss), the live e1rm readout (stronger/below), rename+group from the entry screen, and a `bestE1rm` unit test. Cache bumped `gt-v0.16.0` → `gt-v0.17.0`; `js/ui/exercise-actions.js` added to `PRECACHE`.
+
+**Known issues**: none.
+
+**Next step**: owner device pass on the iPhone, then deploy.
+
+**Departures from plan**: the muscle-group/rename flows moved out of `manage.js` into a shared module so the entry screen can reuse them — behaviour unchanged.
 
 ## 2026-07-21 — Change set 1: Codex verification pass, five defects fixed ✅
 

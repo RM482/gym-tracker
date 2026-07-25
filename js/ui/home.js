@@ -43,17 +43,30 @@ export async function render(el, params, ctx) {
   const sessions = await ctx.store.getLastSessionsByExercise();
   const today = ctx.store.getTodayDay();
 
-  if (exercises.length > 12) el.appendChild(filterBox(el));
+  // The filter input must sit above the sections, but it is wired to the row and
+  // heading elements themselves (not a DOM query): app.js builds each screen in a
+  // detached container and then MOVES its children into #app, so any element the
+  // handler looked up by re-querying that container would come back empty.
+  const filterInput = exercises.length > 12 ? filterBox() : null;
+  if (filterInput) el.appendChild(filterInput);
 
+  const rows = [];
+  const headings = [];
   for (const section of groupExercises(exercises)) {
     const heading = document.createElement('h2');
     heading.className = 'section-label group-heading';
     heading.dataset.group = section.name;
     heading.textContent = section.name;
     el.appendChild(heading);
-    for (const ex of section.rows) el.appendChild(exerciseRow(ex, sessions[ex.id], today, section.name));
+    headings.push({ heading, group: section.name });
+    for (const ex of section.rows) {
+      const row = exerciseRow(ex, sessions[ex.id], today, section.name);
+      el.appendChild(row);
+      rows.push(row);
+    }
   }
 
+  if (filterInput) wireFilter(filterInput, rows, headings);
   el.appendChild(addButton(ctx));
 }
 
@@ -99,27 +112,32 @@ function exerciseRow(ex, last, today, groupName) {
   return row;
 }
 
-// Filtering searches across every group and hides headings left with no
-// visible rows, so an empty section never lingers above nothing (F5).
-function filterBox(root) {
+function filterBox() {
   const filter = document.createElement('input');
   filter.className = 'filter-input';
   filter.type = 'search';
   filter.placeholder = 'Filter exercises';
   filter.setAttribute('aria-label', 'Filter exercises');
+  return filter;
+}
+
+// Filtering searches across every group and hides headings left with no visible
+// rows, so an empty section never lingers above nothing (F5). It works on the
+// captured row/heading elements, which stay live after app.js moves them into
+// #app, rather than re-querying the now-empty build container.
+function wireFilter(filter, rows, headings) {
   filter.addEventListener('input', () => {
     const q = filter.value.trim().toLowerCase();
-    const visibleByGroup = new Map();
-    for (const row of root.querySelectorAll('.list-row[data-name]')) {
+    const visibleGroups = new Set();
+    for (const row of rows) {
       const match = row.dataset.name.includes(q);
       row.style.display = match ? '' : 'none';
-      if (match) visibleByGroup.set(row.dataset.group, true);
+      if (match) visibleGroups.add(row.dataset.group);
     }
-    for (const heading of root.querySelectorAll('.group-heading')) {
-      heading.style.display = visibleByGroup.has(heading.dataset.group) ? '' : 'none';
+    for (const { heading, group } of headings) {
+      heading.style.display = visibleGroups.has(group) ? '' : 'none';
     }
   });
-  return filter;
 }
 
 function backupBanner(ctx) {

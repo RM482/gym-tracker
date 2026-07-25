@@ -20,12 +20,13 @@ test('dashboard shows weight and bodyweight modes with PRs and consistency', asy
   await page.getByRole('button', { name: 'Dashboard' }).click();
 
   // MRU puts Pull-up first: reps-only mode and its applicable PR.
-  await expect(page.getByLabel('Exercise')).toHaveValue(/.+/);
+  // Exact match: the Progress tab also has a "Search exercise" box.
+  await expect(page.getByLabel('Exercise', { exact: true })).toHaveValue(/.+/);
   await expect(page.getByText('★ Most reps: 12 reps', { exact: false })).toBeVisible();
   await expect(page.locator('.chart-card h2')).toHaveText(['Max reps']);
   await expect(page.getByText('1 workout in the last 4 weeks')).toBeVisible();
 
-  await page.getByLabel('Exercise').selectOption({ label: 'Bench press' });
+  await page.getByLabel('Exercise', { exact: true }).selectOption({ label: 'Bench press' });
   await expect(page.getByText('★ Heaviest: 60 kg', { exact: false })).toBeVisible();
   await expect(page.getByText('★ Best estimated 1RM: 70 kg', { exact: false })).toBeVisible();
   await expect(page.locator('.chart-card h2')).toHaveText(['Top-set weight', 'Best estimated 1RM']);

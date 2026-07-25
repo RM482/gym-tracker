@@ -43,6 +43,16 @@ export function epley(weightKg, reps) {
   return weightKg * (1 + reps / 30);
 }
 
+// Best estimated 1-rep max across a set list, so "heavier but fewer reps" can be
+// compared against "lighter but more reps" as a single strength number. Uses the
+// same eligibility as the dashboard: work sets only (reps ≤ 12, weight > 0),
+// recorded kg, so the machine add-on's unknown weight is never folded in (D7).
+// Returns null when no set qualifies (e.g. pure bodyweight, or reps > 12).
+export function bestE1rm(sets) {
+  const eligible = (sets ?? []).filter((set) => set.weightKg > 0 && set.reps <= 12);
+  return eligible.length ? Math.max(...eligible.map((set) => epley(set.weightKg, set.reps))) : null;
+}
+
 export function exerciseProgress(sets) {
   if (!sets.length) return { mode: 'empty', days: [], prs: {} };
   const ordered = [...sets].sort(compareSets);
