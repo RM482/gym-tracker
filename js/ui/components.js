@@ -190,6 +190,15 @@ export function formatDayLabel(day, todayDay) {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
+// One set as text: "60 kg × 8", "bw × 12", with "+on" when the machine add-on
+// was used. The add-on's kilograms are unknown, so it is shown, never added
+// (D7). Lives here with the other formatters because four screens need it —
+// it was in log.js until the entry panel was extracted out of that module.
+export function fmtSet(s) {
+  const base = s.weightKg > 0 ? `${s.weightKg} kg × ${s.reps}` : `bw × ${s.reps}`;
+  return s.addOn ? `${base} +on` : base;
+}
+
 // One-line session summary (plan §6.1): "3 sets · top 10 kg" / "3 sets · best 12 reps".
 export function sessionSummary(sets) {
   const n = sets.length;

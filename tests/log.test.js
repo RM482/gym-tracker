@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { pickRepeatSet, fmtSet } from '../js/ui/log.js';
+// fmtSet moved to components.js and pickRepeatSet to entry-panel.js when the
+// entry block was extracted (change set 3, slice 5). Import lines only — the
+// worked examples and assertions below are unchanged.
+import { pickRepeatSet } from '../js/ui/entry-panel.js';
+import { fmtSet } from '../js/ui/components.js';
 
 // Worked examples from plan §6.2: previous session 10×8, 10×8, 9×8.
 const prev = [

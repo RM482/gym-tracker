@@ -1,8 +1,7 @@
 // day.js — cross-exercise workout-day overview (plan §6.7, owner decision D3).
 
-import { placeholder } from './components.js';
+import { placeholder, fmtSet } from './components.js';
 import { dayDurationMs, groupDaySets } from '../stats.js';
-import { fmtSet } from './log.js';
 import { openSetEditor } from './set-editor.js';
 
 function shiftDay(day, amount) {

@@ -1,7 +1,6 @@
 // history.js — reverse-chronological per-exercise sessions (plan §6.3).
 
-import { header, placeholder, sessionSummary, toast } from './components.js';
-import { fmtSet } from './log.js';
+import { header, placeholder, sessionSummary, toast, fmtSet } from './components.js';
 import { openSetEditor } from './set-editor.js';
 
 function fullDate(day) {
