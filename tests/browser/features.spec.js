@@ -30,8 +30,9 @@ test('exercises group by muscle, ungrouped last, and filtering hides empty headi
   await setGroup(page, 'Cable row', 'Back');
 
   // Sections appear in taxonomy order, with never-assigned exercises last.
-  const headings = await page.locator('.group-heading').allTextContents();
-  expect(headings).toEqual(['Chest', 'Back', 'Ungrouped']);
+  // Change set 3 added the fold arrow and a count to each heading.
+  const headings = await page.locator('.group-toggle').allTextContents();
+  expect(headings).toEqual(['▾Chest (1)', '▾Back (1)', '▾Ungrouped (1)']);
   await expect(page.locator('.list-row', { hasText: 'Weird machine' })).toBeVisible();
 
   // Manage stays a flat list (grouped sections would fight the up/down order),
@@ -68,6 +69,79 @@ test('the home filter box appears past 12 exercises and narrows the list', async
   // Clearing the box brings the whole list back.
   await filter.fill('');
   await expect(page.locator('.list-row', { hasText: 'Bench press' })).toBeVisible();
+});
+
+// Change set 3: "I need to be able to fold in groups (with a little arrow) so I
+// don't have a massive list."
+test('groups fold away, stay folded across a reload, and never hide a filter match', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(async () => {
+    const { openDb } = await import('/js/db.js');
+    const { createStore } = await import('/js/store.js');
+    const platform = await import('/js/platform.js');
+    const db = await openDb();
+    const store = createStore({ dbHandle: db, platform });
+    // 13 exercises so the filter box appears too, and two real groups.
+    const seed = [['Bench press', 'Chest'], ['Cable fly', 'Chest'], ['Squat', 'Legs'],
+      ['Leg press', 'Legs'], ['Calf raise', 'Legs'], ['Deadlift', null], ['Row', null],
+      ['Lat pulldown', null], ['Biceps curl', null], ['Plank', null], ['Face pull', null],
+      ['Hip thrust', null], ['Shrug', null]];
+    for (const [name, muscleGroup] of seed) await store.addExercise(name, { muscleGroup });
+    db.close();
+  });
+  await page.reload();
+
+  const legs = page.locator('.group-toggle', { hasText: 'Legs' });
+  await expect(legs).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.list-row', { hasText: 'Leg press' })).toBeVisible();
+
+  // Fold Legs: its three rows go, the other groups are untouched.
+  await legs.click();
+  await expect(legs).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.list-row', { hasText: 'Leg press' })).toBeHidden();
+  await expect(page.locator('.list-row', { hasText: 'Calf raise' })).toBeHidden();
+  await expect(page.locator('.list-row', { hasText: 'Bench press' })).toBeVisible();
+  await expect(legs).toContainText('Legs (3)');
+
+  // Remembered between visits — the whole point of the request.
+  await page.reload();
+  await expect(page.locator('.group-toggle', { hasText: 'Legs' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.list-row', { hasText: 'Leg press' })).toBeHidden();
+
+  // A filter match inside a folded group must still show, or search would
+  // silently skip folded sections.
+  const filter = page.getByLabel('Filter exercises');
+  await filter.fill('leg');
+  await expect(page.locator('.list-row', { hasText: 'Leg press' })).toBeVisible();
+  await expect(page.locator('.list-row', { hasText: 'Bench press' })).toBeHidden();
+
+  // Clearing the filter restores the fold rather than leaving it open.
+  await filter.fill('');
+  await expect(page.locator('.list-row', { hasText: 'Leg press' })).toBeHidden();
+  await expect(page.locator('.list-row', { hasText: 'Bench press' })).toBeVisible();
+
+  // Unfolding brings them back and is likewise remembered.
+  await page.locator('.group-toggle', { hasText: 'Legs' }).click();
+  await expect(page.locator('.list-row', { hasText: 'Leg press' })).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.list-row', { hasText: 'Leg press' })).toBeVisible();
+});
+
+// Returning to the app fires focus and visibilitychange, which re-render Home.
+// The fold state is stored, not held in the render closure, so it must survive.
+test('fold state survives a background refresh', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.chip', { hasText: 'Bench press' }).click();
+  await page.locator('.group-toggle', { hasText: 'Ungrouped' }).click();
+  await expect(page.locator('.list-row', { hasText: 'Bench press' })).toBeHidden();
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(250);
+  await expect(page.locator('.group-toggle', { hasText: 'Ungrouped' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.list-row', { hasText: 'Bench press' })).toBeHidden();
 });
 
 test('an exercise can be renamed and grouped from its own entry screen', async ({ page }) => {
@@ -203,11 +277,17 @@ test('the plateau nudge appears after three identical sessions and clears when b
   // Matching the plateau today does not clear it.
   await page.getByLabel('Weight in kilograms').fill('60');
   await page.getByRole('button', { name: 'Save set' }).click();
+  // Wait for the post-save re-render to commit before touching the inputs
+  // again. Saving disables the button and re-renders asynchronously, so typing
+  // into the outgoing DOM would be discarded and the next tap would re-save the
+  // pre-filled weight instead — an intermittent failure this test hit for real.
+  await expect(page.getByRole('heading', { name: /^Today — 1 set$/ })).toBeVisible();
   await expect(page.locator('.nudge')).toBeVisible();
 
   // Beating it does.
   await page.getByLabel('Weight in kilograms').fill('62.5');
   await page.getByRole('button', { name: 'Save set' }).click();
+  await expect(page.getByRole('heading', { name: /^Today — 2 sets$/ })).toBeVisible();
   await expect(page.locator('.nudge')).toHaveCount(0);
 });
 

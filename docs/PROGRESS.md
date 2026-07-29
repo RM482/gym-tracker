@@ -30,6 +30,40 @@ keeps the sheet open with the typing intact. A `saving` latch stops Enter-plus-t
 **Tests** (2026-07-29): Vitest 117/117, Playwright 27/27, `check:precache` OK (25 files). Cache
 bumped `gt-v0.17.0` → `gt-v0.18.0`.
 
+**Slice 2 — fold group sections away on Home ✅**
+
+Each group heading is now a button with a ▸/▾ arrow and a count ("Legs (3)") that folds its rows
+away, remembered between visits in `settings.collapsedGroups`. No `DB_VERSION` change: settings is a
+free-form single record merged over the defaults. But a new key gets no validation for free, so a
+`normalizeSettings()` is applied at all four boundaries — `getSettings`, `updateSettings`,
+`snapshotForBackup`, `replaceFromBackup` — accepting only an array of known group names (plus the
+`Ungrouped` literal, now exported as `UNGROUPED_KEY` so home.js and the store share it). Backup
+*validation* stays tolerant: a junk display preference must never block restoring real history, so
+restore canonicalises it instead of rejecting the file.
+
+Verified that `updateSettings` does not call `touchDataChange`, so folding a group cannot move
+`lastDataChangeAtMs` and cannot trigger the backup-overdue banner. There is a unit test pinning that.
+
+**Folding and filtering share one `applyVisibility()`.** Two handlers each writing
+`row.style.display` would overwrite each other — a fresh way to reintroduce the change-set-2 filter
+regression. While the filter has text every section is forced open (a search that silently skipped
+folded groups would be worse than no search) and the heading reports the state actually on screen via
+`aria-expanded`; clearing the filter restores the fold. A remembered group with no exercises is kept,
+not pruned, so no write happens during a render.
+
+**Tests** (2026-07-29): Vitest 119/119, Playwright 29/29, `check:precache` OK. New coverage:
+`collapsedGroups` normalising from duplicates, unknown names, a non-array and a restored backup;
+folding not moving any backup timestamp; fold → reload → still folded; a filter match showing inside
+a folded group and re-folding when cleared; fold state surviving a focus/visibilitychange refresh.
+
+**A pre-existing flaky test was found and fixed** (not caused by this change set — reproduced on the
+slice-1 commit, failing about 1 run in 4). The plateau-nudge test saved a set and then typed into the
+inputs without waiting for the asynchronous post-save re-render, so the typing could land in the
+outgoing DOM and the next tap re-saved the pre-filled weight. It now waits for the "Today — N sets"
+heading between saves, as every other consecutive-save test already did. Worth having fixed before
+slice 5 refactors that exact save→refresh path.
+
+
 New coverage: the add lands on the logging screen with the chosen group applied; no chip selected
 stores Ungrouped; re-tapping a chip clears it; a duplicate name keeps the sheet open with the text;
 Manage's add stays on Manage across two consecutive adds.

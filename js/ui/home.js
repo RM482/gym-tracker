@@ -2,14 +2,14 @@
 // Grouped by muscle group (D8), most-recently-used first within each group,
 // with exercises already logged today marked so the owner can see what is left
 // (D-item 3). Empty state offers starter chips (D2); a filter box appears past
-// 12 exercises; the backup reminder follows plan §6.1 timing.
+// 12 exercises; the backup reminder follows plan §6.1 timing. Sections fold
+// away with a ▸/▾ arrow, remembered between visits (change set 3).
 
 import { header, formatDayLabel, sessionSummary } from './components.js';
 import { exerciseAddSheet } from './exercise-actions.js';
-import { MUSCLE_GROUPS, isBackupOverdue } from '../store.js';
+import { MUSCLE_GROUPS, UNGROUPED_KEY as UNGROUPED, isBackupOverdue } from '../store.js';
 
 const STARTERS = ['Bench press', 'Squat', 'Deadlift', 'Overhead press', 'Row', 'Lat pulldown', 'Leg press', 'Biceps curl'];
-const UNGROUPED = 'Ungrouped';
 
 // Fixed section order: the taxonomy, then never-assigned exercises last.
 // "Other" is a deliberate choice and stays in the taxonomy; "Ungrouped" means
@@ -51,15 +51,17 @@ export async function render(el, params, ctx) {
   const filterInput = exercises.length > 12 ? filterBox() : null;
   if (filterInput) el.appendChild(filterInput);
 
+  // Folding (owner feedback: "so I don't have a massive list"). The collapsed
+  // set is a local copy of the stored preference so a tap paints instantly and
+  // the write happens behind it.
+  const collapsed = new Set(settings.collapsedGroups);
+
   const rows = [];
   const headings = [];
   for (const section of groupExercises(exercises)) {
-    const heading = document.createElement('h2');
-    heading.className = 'section-label group-heading';
-    heading.dataset.group = section.name;
-    heading.textContent = section.name;
-    el.appendChild(heading);
-    headings.push({ heading, group: section.name });
+    const heading = groupHeading(section, collapsed, ctx, () => applyVisibility());
+    el.appendChild(heading.el);
+    headings.push(heading);
     for (const ex of section.rows) {
       const row = exerciseRow(ex, sessions[ex.id], today, section.name);
       el.appendChild(row);
@@ -67,8 +69,73 @@ export async function render(el, params, ctx) {
     }
   }
 
-  if (filterInput) wireFilter(filterInput, rows, headings);
+  // ONE calculation owns every row's visibility. Folding and filtering both
+  // write row.style.display, so giving each its own handler would let them
+  // overwrite each other — a fresh way to reintroduce the change-set-2 filter
+  // regression. Both call this instead.
+  const applyVisibility = () => {
+    const q = filterInput ? filterInput.value.trim().toLowerCase() : '';
+    const filtering = q.length > 0;
+    const groupsWithMatches = new Set();
+    for (const row of rows) {
+      const matches = row.dataset.name.includes(q);
+      if (matches) groupsWithMatches.add(row.dataset.group);
+      // While filtering, a match shows even inside a folded section: a search
+      // that silently skipped folded groups would be worse than no search.
+      const hidden = !matches || (!filtering && collapsed.has(row.dataset.group));
+      row.style.display = hidden ? 'none' : '';
+    }
+    for (const heading of headings) {
+      heading.el.style.display = !filtering || groupsWithMatches.has(heading.group) ? '' : 'none';
+      heading.paint(filtering);
+    }
+  };
+
+  if (filterInput) filterInput.addEventListener('input', applyVisibility);
+  applyVisibility();
   el.appendChild(addButton(ctx));
+}
+
+// A group heading that folds its rows away. The arrow is decorative; the state
+// is carried by aria-expanded so it is announced rather than only drawn (the
+// same reasoning as the F6 fix, where an aria-label override was removed
+// because it destroyed the computed name).
+function groupHeading(section, collapsed, ctx, onToggle) {
+  const el = document.createElement('h2');
+  el.className = 'section-label group-heading';
+  el.dataset.group = section.name;
+
+  const btn = document.createElement('button');
+  btn.className = 'group-toggle';
+  btn.dataset.group = section.name;
+  const arrow = document.createElement('span');
+  arrow.className = 'group-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  const label = document.createElement('span');
+  label.textContent = `${section.name} (${section.rows.length})`;
+  btn.append(arrow, label);
+  el.appendChild(btn);
+
+  // While a filter is active every section is forced open, so the control
+  // reports the state the owner can actually see, not the stored one.
+  const paint = (filtering = false) => {
+    const open = filtering || !collapsed.has(section.name);
+    btn.setAttribute('aria-expanded', String(open));
+    arrow.textContent = open ? '▾' : '▸';
+  };
+  paint();
+
+  btn.addEventListener('click', () => {
+    if (collapsed.has(section.name)) collapsed.delete(section.name);
+    else collapsed.add(section.name);
+    onToggle();
+    // Persisted so the list stays as short as the owner left it. updateSettings
+    // does not touch lastDataChangeAtMs, so folding correctly does not count as
+    // a data change and cannot trigger the backup reminder.
+    ctx.store.updateSettings({ collapsedGroups: [...collapsed] }).catch(() => {});
+  });
+
+  return { el, group: section.name, paint };
 }
 
 function exerciseRow(ex, last, today, groupName) {
@@ -120,25 +187,6 @@ function filterBox() {
   filter.placeholder = 'Filter exercises';
   filter.setAttribute('aria-label', 'Filter exercises');
   return filter;
-}
-
-// Filtering searches across every group and hides headings left with no visible
-// rows, so an empty section never lingers above nothing (F5). It works on the
-// captured row/heading elements, which stay live after app.js moves them into
-// #app, rather than re-querying the now-empty build container.
-function wireFilter(filter, rows, headings) {
-  filter.addEventListener('input', () => {
-    const q = filter.value.trim().toLowerCase();
-    const visibleGroups = new Set();
-    for (const row of rows) {
-      const match = row.dataset.name.includes(q);
-      row.style.display = match ? '' : 'none';
-      if (match) visibleGroups.add(row.dataset.group);
-    }
-    for (const { heading, group } of headings) {
-      heading.style.display = visibleGroups.has(group) ? '' : 'none';
-    }
-  });
 }
 
 function backupBanner(ctx) {

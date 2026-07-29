@@ -419,6 +419,25 @@ button:disabled { cursor: default; }
 .group-heading { margin-top: 1.25rem; }
 .group-heading:first-of-type { margin-top: 0.5rem; }
 
+/* Foldable sections. The heading keeps its own typography; the button inside it
+   is the tap target and spans the full width so it is easy to hit mid-workout. */
+.group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+}
+.group-arrow { width: 1em; color: var(--text-soft); }
+
 /* Already trained today (feedback item 3). Receded, never reordered — rows
    moving between sets would be worse than scanning for them. */
 .list-row.done-today { opacity: 0.62; }

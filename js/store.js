@@ -27,7 +27,7 @@ export class ValidationError extends Error {
 
 const FUTURE_SLACK_MS = 10 * 60000; // §8.2: reject timestamps > now + 10 min
 const BATCH_MAX = 30;               // §8.4 limit
-const DEFAULT_SETTINGS = { id: 'app', coarseIncrementKg: 2.5, exerciseSort: 'recent', lastExportAtMs: null, lastDataChangeAtMs: null, firstDataChangeAtMs: null, backupBannerSnoozedAtMs: null };
+const DEFAULT_SETTINGS = { id: 'app', coarseIncrementKg: 2.5, exerciseSort: 'recent', lastExportAtMs: null, lastDataChangeAtMs: null, firstDataChangeAtMs: null, backupBannerSnoozedAtMs: null, collapsedGroups: [] };
 
 function normName(name) { return String(name ?? '').trim(); }
 function nameKey(name) { return normName(name).toLowerCase(); }
@@ -51,6 +51,12 @@ export function validateReps(r) {
 // deliberately distinct from an explicitly chosen "Other".
 export const MUSCLE_GROUPS = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core', 'Full body', 'Other'];
 
+// The Home section label for exercises with no group. It is a display name, not
+// a stored value (an exercise's muscleGroup is `null`), but the fold preference
+// has to be able to name that section, so the literal is shared rather than
+// spelled out in both home.js and the settings normaliser.
+export const UNGROUPED_KEY = 'Ungrouped';
+
 export function isValidExercise(x) {
   return x && typeof x.id === 'string' && typeof x.name === 'string'
     && Number.isInteger(x.sortOrder) && typeof x.createdAtMs === 'number';
@@ -73,6 +79,21 @@ export function normalizeExercise(x) {
 
 export function normalizeSet(s) {
   return { ...s, addOn: s.addOn === true };
+}
+
+// The Home section-folding preference (change set 3). Settings is a free-form
+// single record merged over the defaults, so a new key needs no DB_VERSION bump
+// — but it also gets no validation for free, and a hand-edited or foreign backup
+// could otherwise hand the Home renderer a string where it expects a list.
+// Same split as records: canonical on write, forgiving on read.
+//
+// A remembered group that currently has no exercises is KEPT, not pruned: the
+// owner's preference should survive the group being empty for a while, and
+// pruning would mean writing to the database during a render.
+export function normalizeSettings(s) {
+  const raw = Array.isArray(s?.collapsedGroups) ? s.collapsedGroups : [];
+  const allowed = [...MUSCLE_GROUPS, UNGROUPED_KEY];
+  return { ...s, collapsedGroups: [...new Set(raw.filter((g) => allowed.includes(g)))] };
 }
 
 export function createStore({ dbHandle, platform }) {
@@ -397,13 +418,16 @@ export function createStore({ dbHandle, platform }) {
 
     async getSettings() {
       const s = await dbHandle.run('settings', 'readonly', (st) => st.settings.get('app'));
-      return { ...DEFAULT_SETTINGS, ...(s ?? {}) };
+      return normalizeSettings({ ...DEFAULT_SETTINGS, ...(s ?? {}) });
     },
 
+    // Normalising on write as well as read is what makes the stored record
+    // canonical, so a junk preference that arrived via a restored backup is
+    // corrected the next time anything is saved rather than living on.
     async updateSettings(patch) {
       return dbHandle.run('settings', 'readwrite', async (st) => {
         const current = (await st.settings.get('app')) ?? { ...DEFAULT_SETTINGS };
-        const next = { ...current, ...patch, id: 'app' };
+        const next = normalizeSettings({ ...DEFAULT_SETTINGS, ...current, ...patch, id: 'app' });
         await st.settings.put(next);
         return next;
       });
@@ -426,7 +450,7 @@ export function createStore({ dbHandle, platform }) {
           return valid;
         });
         if (rawSettings && typeof rawSettings !== 'object') unreadable.push({ store: 'settings', record: rawSettings });
-        return { exercises: exercises.map(normalizeExercise), sets: sets.map(normalizeSet), settings: { ...DEFAULT_SETTINGS, ...(rawSettings && typeof rawSettings === 'object' ? rawSettings : {}) }, unreadable };
+        return { exercises: exercises.map(normalizeExercise), sets: sets.map(normalizeSet), settings: normalizeSettings({ ...DEFAULT_SETTINGS, ...(rawSettings && typeof rawSettings === 'object' ? rawSettings : {}) }), unreadable };
       });
     },
 
@@ -435,7 +459,10 @@ export function createStore({ dbHandle, platform }) {
         await st.sets.clear(); await st.exercises.clear(); await st.settings.clear();
         for (const exercise of data.exercises) await st.exercises.put(exercise);
         for (const set of data.sets) await st.sets.put(set);
-        await st.settings.put({ ...DEFAULT_SETTINGS, ...data.settings, id: 'app' });
+        // Backup validation stays tolerant of a bad display preference on
+        // purpose — it must never block restoring real history — so restore is
+        // where it gets canonicalised.
+        await st.settings.put(normalizeSettings({ ...DEFAULT_SETTINGS, ...data.settings, id: 'app' }));
       });
     },
 

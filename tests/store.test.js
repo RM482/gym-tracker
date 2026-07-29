@@ -235,6 +235,41 @@ describe('settings and diagnostics', () => {
     expect((await store.getSettings()).coarseIncrementKg).toBe(5);
   });
 
+  // Change set 3: collapsedGroups is a display preference, so it must never be
+  // able to reach the Home renderer as something other than a list of known
+  // group names — including via a hand-edited backup.
+  it('normalises collapsedGroups on read, write, snapshot and restore', async () => {
+    expect((await store.getSettings()).collapsedGroups).toEqual([]);
+
+    await store.updateSettings({ collapsedGroups: ['Legs', 'Ungrouped'] });
+    expect((await store.getSettings()).collapsedGroups).toEqual(['Legs', 'Ungrouped']);
+
+    // Junk of every shape is dropped rather than passed through.
+    await store.updateSettings({ collapsedGroups: ['Legs', 'Legs', 'Nonsense', 42, null, 'Chest'] });
+    expect((await store.getSettings()).collapsedGroups).toEqual(['Legs', 'Chest']);
+    await store.updateSettings({ collapsedGroups: 'Legs' });
+    expect((await store.getSettings()).collapsedGroups).toEqual([]);
+
+    // A backup carrying a bad value still restores (history must never be
+    // blocked by a cosmetic preference), and comes back canonical.
+    await store.replaceFromBackup({
+      exercises: [], sets: [],
+      settings: { id: 'app', collapsedGroups: 'Legs' },
+    });
+    expect((await store.getSettings()).collapsedGroups).toEqual([]);
+
+    await store.updateSettings({ collapsedGroups: ['Back', 'bogus'] });
+    expect((await store.snapshotForBackup()).settings.collapsedGroups).toEqual(['Back']);
+  });
+
+  it('folding a group is not a data change and cannot make a backup overdue', async () => {
+    const before = await store.getSettings();
+    await store.updateSettings({ collapsedGroups: ['Legs'] });
+    const after = await store.getSettings();
+    expect(after.lastDataChangeAtMs).toBe(before.lastDataChangeAtMs);
+    expect(after.firstDataChangeAtMs).toBe(before.firstDataChangeAtMs);
+  });
+
   it('excludes malformed records from queries but never deletes them', async () => {
     const ex = await store.addExercise('Row');
     await store.addSet({ exerciseId: ex.id, weightKg: 40, reps: 8 });
