@@ -4,7 +4,8 @@
 // (D-item 3). Empty state offers starter chips (D2); a filter box appears past
 // 12 exercises; the backup reminder follows plan §6.1 timing.
 
-import { header, promptSheet, formatDayLabel, sessionSummary } from './components.js';
+import { header, formatDayLabel, sessionSummary } from './components.js';
+import { exerciseAddSheet } from './exercise-actions.js';
 import { MUSCLE_GROUPS, isBackupOverdue } from '../store.js';
 
 const STARTERS = ['Bench press', 'Squat', 'Deadlift', 'Overhead press', 'Row', 'Lat pulldown', 'Leg press', 'Biceps curl'];
@@ -183,8 +184,10 @@ function renderEmptyState(el, ctx) {
   el.appendChild(addButton(ctx));
 }
 
-// New exercises are named first, then optionally categorised — keeping the
-// common path one field long.
+// Adding from Home goes straight into the new exercise's logging screen: the
+// owner adds an exercise at the gym in order to log it, and being returned to
+// this list meant finding it again first. The group is set in the same sheet.
+// (Manage's add deliberately stays put — see manage.js.)
 function addButton(ctx) {
   const btn = document.createElement('button');
   btn.className = 'btn-secondary';
@@ -193,17 +196,9 @@ function addButton(ctx) {
     // Mobile Safari does not consistently focus tapped buttons. Establish the
     // return point explicitly so the modal can restore keyboard/VoiceOver focus.
     btn.focus();
-    promptSheet({
-      title: 'New exercise',
-      label: 'Exercise name',
-      submitLabel: 'Add',
-      async onSubmit(value) {
-        // New exercises land Ungrouped; the group is assigned from Manage when
-        // convenient. Prompting for it here would put a second modal in front of
-        // the owner every time they add something.
-        await ctx.store.addExercise(value);
-        ctx.refresh();
-      },
+    exerciseAddSheet(ctx, {
+      // The hash change re-renders on its own; no ctx.refresh() needed here.
+      onAdded(ex) { location.hash = `#/log/${ex.id}`; },
     });
   });
   return btn;

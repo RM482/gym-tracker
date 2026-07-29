@@ -1,10 +1,45 @@
 # Progress log
 
-> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 2 (four owner-feedback
-> items) implemented locally at `gt-v0.17.0` (`DB_VERSION = 2`, unchanged), tests green (Vitest 117, Playwright 26).
-> Not yet deployed; the owner's device pass on their iPhone is still outstanding.
+> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 3 in progress
+> (`DB_VERSION = 2`, unchanged; no schema change in this change set). Change set 2 shipped and deployed
+> on 2026-07-25 at `gt-v0.17.0`. The owner's device pass on their iPhone is still outstanding.
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
+
+## 2026-07-29 — Change set 3: four owner-feedback items (in progress)
+
+Owner asked for four things after continued real use. Design brief → Codex review → response, all in
+`docs/reviews/` (`CHANGE_SET_3_BRIEF.md`, `CODEX_REVIEW_CHANGE_SET_3.md`,
+`CLAUDE_RESPONSE_CHANGE_SET_3.md`). Codex raised 3 blockers, 7 should-fixes and 2 considers; all
+accepted, two with refinements. Six slices; this entry grows as they land.
+
+**Slice 1 — add an exercise and go straight into it ✅**
+
+New shared `exerciseAddSheet()` in `exercise-actions.js` takes the name **and** an optional muscle
+group in one sheet; adding from Home then navigates to `#/log/<newId>`. This amends D8 (recorded as
+**D9**): the owner adds an exercise at the gym in order to log it, so returning to the list meant
+finding it again, and grouping never happened at the moment the exercise was in mind. The group stays
+optional, so the fast path costs no extra tap. Manage's add uses the same sheet but deliberately
+stays put — housekeeping there happens in batches — and the first-run starter chips also stay put, or
+tapping one suggestion would make the other seven unreachable.
+
+Built on `sheet()` rather than by giving `promptSheet` a mode flag (it has four other single-field
+call sites), so the inline-error contract is reproduced explicitly: a duplicate name reports and
+keeps the sheet open with the typing intact. A `saving` latch stops Enter-plus-tap creating two.
+
+**Tests** (2026-07-29): Vitest 117/117, Playwright 27/27, `check:precache` OK (25 files). Cache
+bumped `gt-v0.17.0` → `gt-v0.18.0`.
+
+New coverage: the add lands on the logging screen with the chosen group applied; no chip selected
+stores Ungrouped; re-tapping a chip clears it; a duplicate name keeps the sheet open with the text;
+Manage's add stays on Manage across two consecutive adds.
+
+**Five existing browser tests were edited, and it is worth being explicit that this was a real
+behaviour change and not test accommodation.** `exercises.spec.js` asserted the old
+return-to-Home behaviour directly; `features.spec.js` and `render-race.spec.js` add from Home in a
+helper and needed a Back tap to leave the caller where it was; `dashboard.spec.js` and
+`history-day.spec.js` tapped a list row that the app now skips past. No assertion about anything
+other than the add flow was weakened.
 
 ## 2026-07-25 — Change set 2: four owner-feedback items ✅
 

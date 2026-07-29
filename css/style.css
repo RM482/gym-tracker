@@ -234,7 +234,7 @@ button:disabled { cursor: default; }
 }
 .menu-danger { color: var(--danger); }
 
-/* Starter chips (D2) */
+/* Starter chips (D2), reused as the group picker in the add sheet */
 .chip-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
 .chip {
   min-height: 2.75rem;
@@ -244,6 +244,14 @@ button:disabled { cursor: default; }
   background: var(--surface);
   font-size: 0.95rem;
 }
+/* Selection is carried by aria-pressed, so the state is announced as well as
+   drawn — the styling follows the accessible state rather than shadowing it. */
+.chip[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+.sheet .chip-row { margin-bottom: 0.25rem; }
 
 /* Manage rows */
 .row-actions { display: flex; gap: 0.25rem; margin-left: auto; }

@@ -61,7 +61,7 @@ test('B8: today groups two exercises and opens the shared editor', async ({ page
   await page.getByRole('button', { name: '＋ Add exercise' }).click();
   await page.getByLabel('Exercise name').fill('Squat');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.locator('.list-row', { hasText: 'Squat' }).click();
+  // Change set 3: the add lands on Squat's logging screen directly.
   await page.getByLabel('Weight in kilograms').fill('60');
   await page.getByRole('button', { name: 'Save set' }).click();
   await page.locator('button[aria-label="Back"]').click();

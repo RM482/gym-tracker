@@ -12,7 +12,8 @@ test('dashboard shows weight and bodyweight modes with PRs and consistency', asy
   await page.getByRole('button', { name: '＋ Add exercise' }).click();
   await page.getByLabel('Exercise name').fill('Pull-up');
   await page.getByRole('button', { name: 'Add', exact: true }).click();
-  await page.locator('.list-row', { hasText: 'Pull-up' }).click();
+  // Change set 3: the add lands on Pull-up's logging screen directly, so there
+  // is no longer a row to tap on the way in.
   await page.getByLabel('Weight in kilograms').fill('0');
   await page.getByLabel('Repetitions').fill('12');
   await page.getByRole('button', { name: 'Save set' }).click();

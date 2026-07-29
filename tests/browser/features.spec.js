@@ -3,10 +3,13 @@
 
 import { test, expect } from '@playwright/test';
 
+// Change set 3: adding from Home now lands on the new exercise's logging
+// screen, so this helper walks back to Home to leave the caller where it was.
 async function addExercise(page, name) {
   await page.getByRole('button', { name: '＋ Add exercise' }).click();
   await page.locator('.sheet input').fill(name);
   await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.locator('button[aria-label="Back"]').click();
 }
 
 async function setGroup(page, exercise, group) {

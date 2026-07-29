@@ -38,3 +38,23 @@ Owner reported the Home search had stopped working and asked for three additions
 - **Progress is surfaced as estimated 1-rep max (Epley), not a new metric.** The owner asked how to tell whether "higher weight, fewer reps" is progress. Rather than invent a bespoke score, the entry screen now shows a live e1RM for the set being entered and compares it to the previous session's best. This reuses the exact formula and eligibility the dashboard already applies (work sets, reps ≤ 12, recorded kg), so one strength number is defined consistently everywhere. Add-on sets are flagged and **not** compared, honouring **D7** (the add-on's kg is unknown, so no ordering may be claimed across a change in add-on state).
 - **Rename and muscle-group assignment are now reachable from inside an exercise**, not only from Manage. Both flows moved into a shared `js/ui/exercise-actions.js` so the two entry points cannot drift; behaviour is identical to Manage. No change to **D8** (grouping stays Home-only for display; Manage remains the flat, reorderable list).
 - **Home filter retains its >12-exercise threshold**; change set 2 fixed the regression rather than changing when the box appears. Progress-tab search is shown once there is more than one exercise.
+
+## 2026-07-29 — Change set 3: owner feedback (third round)
+
+Owner asked for four things after continued real use: group an exercise while adding it and go
+straight into it, assign a muscle group to many exercises in one pass, log two exercises at once for
+supersets, and fold group sections away on Home. Design brief → independent Codex review (3 blockers,
+7 should-fixes, 2 considers; all accepted, two with refinements) → implementation. Documents:
+`reviews/CHANGE_SET_3_BRIEF.md`, `reviews/CODEX_REVIEW_CHANGE_SET_3.md`,
+`reviews/CLAUDE_RESPONSE_CHANGE_SET_3.md`.
+
+- **D9 — amends D8: a new exercise may be grouped as it is added, and adding from Home lands on that
+  exercise's logging screen.** D8 recorded the opposite trade-off — new exercises land Ungrouped and
+  are tagged incrementally from Manage — to keep the add path "one field long" and avoid a second
+  modal. Real use showed the cost: the owner adds an exercise *at the gym in order to log it*, so
+  being returned to the list meant finding it again, and grouping never happened at the one moment
+  the exercise is in mind. The group picker is now in the **same** sheet as the name and is
+  **optional**, so no chip tapped is still Ungrouped and the fast path costs no extra tap. The rest
+  of D8 is unchanged: same curated taxonomy, grouping still displayed on Home only, Ungrouped still
+  distinct from Other. **Manage's add deliberately does not navigate** — it is a housekeeping screen
+  where exercises are added in batches.

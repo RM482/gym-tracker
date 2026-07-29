@@ -4,7 +4,7 @@
 
 import { header, promptSheet, confirmSheet, menuSheet, toast } from './components.js';
 import { ValidationError } from '../store.js';
-import { renameExerciseFlow, muscleGroupSheet } from './exercise-actions.js';
+import { renameExerciseFlow, muscleGroupSheet, exerciseAddSheet } from './exercise-actions.js';
 
 let showArchived = false; // session-level toggle
 
@@ -174,20 +174,15 @@ async function unarchive(ex, ctx) {
   }
 }
 
+// Same sheet as Home, but Manage stays put afterwards: this is a housekeeping
+// screen, and someone adding three exercises in a row here should not be thrown
+// into a logging screen after the first one.
 function addButton(ctx) {
   const btn = document.createElement('button');
   btn.className = 'btn-secondary';
   btn.textContent = '＋ Add exercise';
   btn.addEventListener('click', () => {
-    promptSheet({
-      title: 'New exercise',
-      label: 'Exercise name',
-      submitLabel: 'Add',
-      async onSubmit(value) {
-        await ctx.store.addExercise(value);
-        ctx.refresh();
-      },
-    });
+    exerciseAddSheet(ctx, { onAdded() { ctx.refresh(); } });
   });
   return btn;
 }

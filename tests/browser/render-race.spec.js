@@ -13,6 +13,8 @@ async function seed(page, names) {
     await page.getByRole('button', { name: '＋ Add exercise' }).click();
     await page.locator('.sheet input').fill(name);
     await page.getByRole('button', { name: 'Add', exact: true }).click();
+    // Change set 3: the add lands on the new exercise; this suite tests Home.
+    await page.locator('button[aria-label="Back"]').click();
   }
   await expect(page.locator('.list-row')).toHaveCount(names.length);
 }
