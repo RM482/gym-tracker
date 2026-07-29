@@ -28,6 +28,16 @@ export function parseRoute(hash) {
   if ((m = path.match(/^\/history\/([\w-]+)$/))) return { screen: 'history', params: { exerciseId: m[1] } };
   if ((m = path.match(/^\/day\/(\d{4}-\d{2}-\d{2})$/))) return { screen: 'day', params: { date: m[1] } };
   if (path === '/dashboard') return { screen: 'dashboard', params: {} };
+  // Bulk muscle-group assignment. The target group lives in the route rather
+  // than in module state, so returning to the app (which re-renders on focus
+  // and visibilitychange) cannot silently drop the owner out of the mode, and
+  // Back leaves it naturally. manage.js validates the name against the
+  // taxonomy; routing stays ignorant of the domain.
+  if ((m = path.match(/^\/manage\/group\/(.+)$/))) {
+    let groupingAs;
+    try { groupingAs = decodeURIComponent(m[1]); } catch { return { screen: 'manage', params: {} }; }
+    return { screen: 'manage', params: { groupingAs } };
+  }
   if (path === '/manage') return { screen: 'manage', params: {} };
   if (path === '/settings') return { screen: 'settings', params: {} };
   return null;

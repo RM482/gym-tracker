@@ -1,14 +1,25 @@
 // manage.js — add/rename/archive/unarchive/delete/reorder exercises (plan §6.5).
 // Reorder via ▲▼ buttons (accessible, no drag). Delete is a two-step confirm
 // naming the exact set count; archive is always offered as the safe default.
+// Also hosts bulk muscle-group assignment at #/manage/group/<Group> (change
+// set 3); the list stays flat throughout, per D8.
 
 import { header, promptSheet, confirmSheet, menuSheet, toast } from './components.js';
-import { ValidationError } from '../store.js';
+import { ValidationError, MUSCLE_GROUPS } from '../store.js';
 import { renameExerciseFlow, muscleGroupSheet, exerciseAddSheet } from './exercise-actions.js';
 
 let showArchived = false; // session-level toggle
 
 export async function render(el, params, ctx) {
+  // Grouping mode is driven entirely by the route, so a background refresh
+  // re-renders straight back into it and every row's state is re-derived from
+  // freshly read data — there is no draft to lose or reconcile.
+  const groupingAs = MUSCLE_GROUPS.includes(params.groupingAs) ? params.groupingAs : null;
+  if (groupingAs) {
+    await renderGroupingMode(el, groupingAs, ctx);
+    return;
+  }
+
   el.appendChild(header({ title: 'Manage exercises', back: '#/' }));
 
   const active = await ctx.store.listExercises();
@@ -25,6 +36,7 @@ export async function render(el, params, ctx) {
   active.forEach((ex, i) => el.appendChild(activeRow(ex, i, active.length, ctx)));
 
   el.appendChild(addButton(ctx));
+  if (active.length > 1) el.appendChild(groupSeveralButton());
 
   if (archived.length > 0) {
     const toggle = document.createElement('button');
@@ -40,6 +52,103 @@ export async function render(el, params, ctx) {
       for (const ex of archived) el.appendChild(archivedRow(ex, ctx));
     }
   }
+}
+
+// Bulk grouping (owner feedback: "I select 'Arms', and then go through the list
+// to select all arms exercises, thereby grouping them"). Pick the group first,
+// then walk the list — selecting IS grouping, so each tap writes immediately.
+//
+// Save-per-tap rather than staging an Apply: the app re-renders on focus and
+// visibilitychange, so a staged draft would be silently discarded when the
+// phone locks mid-list, losing a dozen taps with no error. Immediate writes
+// have nothing to lose, and a mis-tap is corrected by tapping again.
+function groupSeveralButton() {
+  const btn = document.createElement('button');
+  btn.className = 'btn-secondary';
+  btn.textContent = '⋮⋮ Group several exercises…';
+  btn.addEventListener('click', () => menuSheet({
+    title: 'Group several as…',
+    items: MUSCLE_GROUPS.map((group) => ({
+      label: group,
+      onTap: () => { location.hash = `#/manage/group/${encodeURIComponent(group)}`; },
+    })),
+  }));
+  return btn;
+}
+
+async function renderGroupingMode(el, target, ctx) {
+  el.appendChild(header({ title: `Group as ${target}`, back: '#/manage' }));
+
+  const active = await ctx.store.listExercises();
+
+  const hint = document.createElement('p');
+  hint.className = 'placeholder';
+  hint.textContent = active.length === 0
+    ? 'No exercises yet — add one first.'
+    : `Tap each ${target.toLowerCase()} exercise. Tapping a ticked one puts it back to Ungrouped.`;
+  el.appendChild(hint);
+
+  for (const ex of active) el.appendChild(groupingRow(ex, target, ctx));
+
+  const done = document.createElement('button');
+  done.className = 'btn-primary';
+  done.textContent = 'Done';
+  done.addEventListener('click', () => { location.hash = '#/manage'; });
+  el.appendChild(done);
+}
+
+function groupingRow(ex, target, ctx) {
+  const row = document.createElement('button');
+  row.className = 'list-row grouping-row';
+  row.dataset.name = ex.name;
+
+  const main = document.createElement('span');
+  main.className = 'row-main';
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = ex.name;
+  const sub = document.createElement('span');
+  sub.className = 'sub';
+  main.append(name, sub);
+  row.appendChild(main);
+
+  const tick = document.createElement('span');
+  tick.className = 'done-tick';
+  tick.textContent = '✓';
+  tick.setAttribute('aria-hidden', 'true');
+  row.appendChild(tick);
+
+  // `original` is only ever read to show what a tap overwrote, so the owner can
+  // see they have just taken something out of another group and put it back.
+  const original = ex.muscleGroup;
+  let current = ex.muscleGroup;
+  const paint = () => {
+    const on = current === target;
+    row.setAttribute('aria-pressed', String(on));
+    tick.style.visibility = on ? '' : 'hidden';
+    sub.textContent = on && original && original !== target
+      ? `${target} — was ${original}`
+      : (current ?? 'Ungrouped');
+  };
+  paint();
+
+  row.addEventListener('click', async () => {
+    const next = current === target ? null : target;
+    row.disabled = true;
+    try {
+      await ctx.store.setMuscleGroup(ex.id, next);
+      current = next;
+      paint();
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      row.disabled = false;
+    }
+    // Deliberately no ctx.refresh(): re-rendering the whole screen on every tap
+    // would throw away the owner's place in a long list mid-pass. The list is
+    // refreshed once, on the way out.
+  });
+  return row;
 }
 
 function activeRow(ex, index, count, ctx) {

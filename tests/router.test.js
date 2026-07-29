@@ -24,6 +24,19 @@ describe('parseRoute', () => {
     expect(parseRoute('#/day/19-07-2026')).toBeNull();
     expect(parseRoute('#/log/')).toBeNull();
   });
+
+  // Bulk grouping keeps its target group in the route so a background refresh
+  // cannot drop the owner out of the mode.
+  it('parses the bulk grouping route, including a group name with a space', () => {
+    expect(parseRoute('#/manage/group/Arms')).toEqual({ screen: 'manage', params: { groupingAs: 'Arms' } });
+    expect(parseRoute('#/manage/group/Full%20body')).toEqual({ screen: 'manage', params: { groupingAs: 'Full body' } });
+    // Routing stays ignorant of the taxonomy; manage.js falls back to the plain
+    // list for a name it does not recognise, so an odd URL is harmless.
+    expect(parseRoute('#/manage/group/Nonsense')).toEqual({ screen: 'manage', params: { groupingAs: 'Nonsense' } });
+    // A malformed escape must not throw out of the router.
+    expect(parseRoute('#/manage/group/%E0%A4%A')).toEqual({ screen: 'manage', params: {} });
+    expect(parseRoute('#/manage/group/')).toBeNull();
+  });
 });
 
 describe('recovery confirmation', () => {

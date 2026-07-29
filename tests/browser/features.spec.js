@@ -127,6 +127,68 @@ test('groups fold away, stay folded across a reload, and never hide a filter mat
   await expect(page.locator('.list-row', { hasText: 'Leg press' })).toBeVisible();
 });
 
+// Change set 3: "I want to be able to mass group items. E.g. I select 'Arms',
+// and then go through the list to select all arms exercises."
+test('grouping mode tags several exercises in one pass and survives a refresh', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(async () => {
+    const { openDb } = await import('/js/db.js');
+    const { createStore } = await import('/js/store.js');
+    const platform = await import('/js/platform.js');
+    const db = await openDb();
+    const store = createStore({ dbHandle: db, platform });
+    await store.addExercise('Biceps curl');
+    await store.addExercise('Triceps pushdown');
+    await store.addExercise('Hammer curl');
+    await store.addExercise('Bench press', { muscleGroup: 'Chest' });
+    db.close();
+  });
+  await page.reload();
+
+  await page.getByRole('button', { name: 'Manage exercises' }).click();
+  await page.getByRole('button', { name: /Group several exercises/ }).click();
+  await page.locator('.sheet').getByRole('button', { name: 'Arms', exact: true }).click();
+  await expect(page.locator('.screen-header h1')).toHaveText('Group as Arms');
+
+  // Walk the list: each tap writes immediately, so nothing is staged and lost.
+  const row = (name) => page.locator('.grouping-row', { hasText: name });
+  await expect(row('Biceps curl')).toHaveAttribute('aria-pressed', 'false');
+  await row('Biceps curl').click();
+  await row('Hammer curl').click();
+  await expect(row('Biceps curl')).toHaveAttribute('aria-pressed', 'true');
+  await expect(row('Hammer curl')).toHaveAttribute('aria-pressed', 'true');
+  await expect(row('Triceps pushdown')).toHaveAttribute('aria-pressed', 'false');
+
+  // Taking an exercise out of another group says so, rather than overwriting
+  // it silently.
+  await row('Bench press').click();
+  await expect(row('Bench press')).toContainText('Arms — was Chest');
+
+  // A background refresh must not drop the mode or lose the taps: the target
+  // group is in the route and every tap is already written.
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(250);
+  await expect(page.locator('.screen-header h1')).toHaveText('Group as Arms');
+  await expect(row('Biceps curl')).toHaveAttribute('aria-pressed', 'true');
+
+  // Tapping a ticked row puts it back to Ungrouped.
+  await row('Bench press').click();
+  await expect(row('Bench press')).toHaveAttribute('aria-pressed', 'false');
+  await expect(row('Bench press')).toContainText('Ungrouped');
+
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.locator('.screen-header h1')).toHaveText('Manage exercises');
+  await expect(page.locator('.list-row', { hasText: 'Biceps curl' })).toContainText('Arms');
+  await expect(page.locator('.list-row', { hasText: 'Triceps pushdown' })).toContainText('Ungrouped');
+
+  // …and Home now has an Arms section holding both.
+  await page.locator('button[aria-label="Back"]').click();
+  await expect(page.locator('.group-toggle', { hasText: 'Arms' })).toContainText('Arms (2)');
+});
+
 // Returning to the app fires focus and visibilitychange, which re-render Home.
 // The fold state is stored, not held in the render closure, so it must survive.
 test('fold state survives a background refresh', async ({ page }) => {

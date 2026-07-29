@@ -63,6 +63,36 @@ outgoing DOM and the next tap re-saved the pre-filled weight. It now waits for t
 heading between saves, as every other consecutive-save test already did. Worth having fixed before
 slice 5 refactors that exact save→refresh path.
 
+**Slice 3 — group several exercises in one pass ✅**
+
+Manage gains "⋮⋮ Group several exercises…" (shown once there are at least two). It picks the target
+group, then every row becomes a tick-toggle: tapping assigns the group, tapping a ticked row puts it
+back to Ungrouped. A row taken out of another group reads "Arms — was Chest", so an overwrite is
+visible rather than silent. Manage stays flat throughout, per D8.
+
+**The mode lives in the route** (`#/manage/group/<Group>`), not in module or closure state. The app
+re-renders on `focus` and `visibilitychange`, so a mode held in a render closure would be silently
+dropped when the phone locks mid-list; in the route it re-renders straight back into the mode, and
+Back leaves it naturally. `parseRoute` stays ignorant of the taxonomy — `manage.js` falls back to the
+plain list for an unrecognised name — and a malformed percent-escape is caught rather than thrown out
+of the router.
+
+**Each tap writes immediately** instead of staging an Apply. A staged draft has exactly the same
+lock-the-phone failure as a closure-held mode, and the owner's own wording ("go through the list to
+select all arms exercises, **thereby** grouping them") describes selecting as grouping. Because the
+write is immediate there is nothing to lose and a mis-tap is corrected by tapping again. A tap
+deliberately does **not** call `ctx.refresh()`: re-rendering the whole screen per tap would throw away
+the owner's place in a long list. The list refreshes once, on the way out.
+
+**Tests** (2026-07-29): Vitest 120/120, Playwright 30/30, `check:precache` OK. New coverage: the
+grouping route including a space in the name, an unknown name and a malformed escape; tagging several
+exercises in one pass; the "was Chest" overwrite label; the mode and its writes surviving a
+focus/visibilitychange refresh; untick returning to Ungrouped; and Home showing the resulting section.
+
+**Process note:** slice 2 changed app files without bumping `CACHE_VERSION`, which the project rule
+requires per commit. Corrected here — the bump to `gt-v0.19.0` covers slices 2 and 3. No deploy
+happened in between, so no device ever saw `gt-v0.18.0` without the folding code.
+
 
 New coverage: the add lands on the logging screen with the chosen group applied; no chip selected
 stores Ungrouped; re-tapping a chip clears it; a duplicate name keeps the sheet open with the text;

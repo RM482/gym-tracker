@@ -438,6 +438,11 @@ button:disabled { cursor: default; }
 }
 .group-arrow { width: 1em; color: var(--text-soft); }
 
+/* Bulk grouping rows: selection is the accessible pressed state, with the tick
+   kept in the layout when hidden so rows do not shift as they are tapped. */
+.grouping-row[aria-pressed='true'] { border-color: var(--accent); }
+.grouping-row[aria-pressed='true'] .name { font-weight: 600; }
+
 /* Already trained today (feedback item 3). Receded, never reordered — rows
    moving between sets would be worse than scanning for them. */
 .list-row.done-today { opacity: 0.62; }
