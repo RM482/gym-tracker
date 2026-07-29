@@ -58,3 +58,32 @@ supersets, and fold group sections away on Home. Design brief → independent Co
   of D8 is unchanged: same curated taxonomy, grouping still displayed on Home only, Ungrouped still
   distinct from Other. **Manage's add deliberately does not navigate** — it is a housekeeping screen
   where exercises are added in batches.
+
+- **D10 — supersets are ad-hoc and live in the route, as two stacked panels.** The owner confirmed
+  they pick the partner exercise fresh each session, so there are **no stored pairs**, no pair
+  management screen and no schema change: `#/superset/<idA>/<idB>` *is* the pairing, which also means
+  iOS relaunching the app onto its last hash restores it. Layout is stacked, not the side-by-side
+  split the owner floated: on an iPhone two columns halve the stepper buttons, which are the controls
+  most used between sets. Each panel is the shared `entry-panel.js` in compact mode — quick entry is
+  omitted (a plan-several-sets tool, not what supersetting needs) but nothing about ownership
+  changes. **Each panel has its own write guard**, which is correct because the two write to
+  different exercises; a shared guard would let saving Bench disable Row's Save button. For the same
+  reason `parseRoute` **rejects an exercise supersetted with itself**: that would be two guards and
+  two live Save buttons over one exercise, the duplicate path the guard exists to prevent (plan §12).
+  Panel headings are not links to the full logging screen, because that screen's back button always
+  goes Home and would strand the owner with no route back.
+
+- **D11 — bulk grouping mode lives in the route and writes on every tap.** `#/manage/group/<Group>`
+  rather than module or closure state, and an immediate write per tap rather than a staged
+  Apply/Cancel. Both follow from the same fact: the app re-renders on `focus` and `visibilitychange`,
+  so anything held only in a render closure is silently discarded when the phone locks mid-list —
+  losing a dozen taps with no error. With the mode in the route and each tap already written, there
+  is nothing to lose and nothing to reconcile. Unticking sets Ungrouped; a row taken out of another
+  group shows "Arms — was Chest" so an overwrite is never silent.
+
+- **Scroll restoration was investigated and deliberately not added.** The concern was that saving from
+  the lower superset panel would throw the view to the top. Measured on WebKit at iPhone viewport:
+  with the page height stable the scroll does not move at all; it only moves when the page genuinely
+  gets shorter and the browser clamps to the new bottom, which preserving `scrollY` could not fix
+  anyway. A global same-route scroll policy in `app.js` would affect every screen for no benefit, so
+  none was added. Re-open only if the owner sees a jump on the device.

@@ -1,17 +1,17 @@
 # Progress log
 
-> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 3 in progress
-> (`DB_VERSION = 2`, unchanged; no schema change in this change set). Change set 2 shipped and deployed
-> on 2026-07-25 at `gt-v0.17.0`. The owner's device pass on their iPhone is still outstanding.
+> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 3 complete
+> locally at `gt-v0.21.0` (`DB_VERSION = 2`, unchanged — no schema change), tests green
+> (Vitest 121, Playwright 39). Not yet pushed; the owner's device pass on their iPhone is outstanding.
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
-## 2026-07-29 — Change set 3: four owner-feedback items (in progress)
+## 2026-07-29 — Change set 3: four owner-feedback items ✅
 
 Owner asked for four things after continued real use. Design brief → Codex review → response, all in
 `docs/reviews/` (`CHANGE_SET_3_BRIEF.md`, `CODEX_REVIEW_CHANGE_SET_3.md`,
 `CLAUDE_RESPONSE_CHANGE_SET_3.md`). Codex raised 3 blockers, 7 should-fixes and 2 considers; all
-accepted, two with refinements. Six slices; this entry grows as they land.
+accepted, two with refinements. Six slices, all landed. No schema change: `DB_VERSION` stays 2.
 
 **Slice 1 — add an exercise and go straight into it ✅**
 
@@ -92,6 +92,66 @@ focus/visibilitychange refresh; untick returning to Ungrouped; and Home showing 
 **Process note:** slice 2 changed app files without bumping `CACHE_VERSION`, which the project rule
 requires per commit. Corrected here — the bump to `gt-v0.19.0` covers slices 2 and 3. No deploy
 happened in between, so no device ever saw `gt-v0.18.0` without the folding code.
+
+**Slice 4 — characterisation tests before the refactor ✅**
+
+`tests/browser/entry-panel.spec.js`, written against the *old* code so the extraction had a net that
+already existed. The existing suites covered the entry block's features; what they did not cover was
+the coupling between them, which is what an extraction breaks silently. Pins: one `pending` guard
+shared by manual Save, Repeat and the quick-entry confirm; the quick draft surviving navigation and a
+failed parse and clearing only after success; quick parsing falling back to the stepper's weight; the
+batch taking the add-on from the toggle; and Repeat taking the add-on from the set it copies rather
+than from the toggle. No app code changed.
+
+**Slice 5 — entry block extracted to `js/ui/entry-panel.js` ✅**
+
+Pure refactor. `log.js` drops from 376 to ~150 lines and now only composes the screen (header, Last
+time, Today, nudge, panel). The boundary **includes quick entry**, which the Codex review caught as
+the blocker in the brief: the quick confirm joins the same `saveButtons` list and calls the same
+guard, reads the panel's live weight and add-on, and clears its draft only after a successful write.
+Drawing the line at the manual controls would have meant callbacks across a module boundary or a
+second independent guard — quietly downgrading the rule that every write button for one exercise is
+mutually exclusive (plan §12).
+
+`fmtSet` moved to `components.js` with the other formatters rather than being re-exported from
+`log.js`, which would have been a misleading indirection kept only to avoid touching an import line;
+`pickRepeatSet` moved with the panel. **Only import lines changed in `tests/log.test.js` — no
+assertion anywhere was edited**, which was the success criterion for this slice.
+
+Also recorded in the panel: `ctx.refresh()` after a write is deliberately **not** gated on
+`ctx.isCurrent()`. `renderSeq` is monotonic and `shouldCommitRender` requires `seq === currentSeq`,
+so a background render that began before the write can never commit over the post-write one. Gating
+the refresh is the actual hazard — it would skip exactly when a background render had invalidated the
+token, letting a pre-write snapshot be the last thing committed.
+
+**Slice 6 — the superset screen ✅**
+
+`#/superset/<idA>/<idB>` shows two stacked panels, each the shared entry panel in compact mode, so
+both exercises are logged without leaving the screen. Started from "⇄ Superset with…" on either
+exercise's own screen; a ⇄ header button swaps which is on top. Recorded as **D10**.
+
+The pair lives in the route because it is ad-hoc per session (owner's choice): nothing stored, no
+pairs to manage, no schema change, and an iOS relaunch onto the last hash restores it. `parseRoute`
+**rejects an exercise supersetted with itself** — that would be two independent guards and two live
+Save buttons over one exercise, the duplicate path the guard exists to prevent. If one exercise has
+since been archived or deleted the screen falls back to the survivor's own logging screen with a
+toast; if both are gone, Home. Every render-time toast and redirect is gated on `ctx.isCurrent()`.
+
+**Scroll behaviour was measured rather than assumed**, per the review. On WebKit at iPhone viewport,
+saving from the lower panel moves the scroll only when the page genuinely gets shorter and the
+browser clamps to the new bottom (573→476 as a placeholder is replaced by a one-line summary);
+with the page height stable it does not move at all (476→476). Preserving `scrollY` could not fix a
+clamp, so **no `app.js` scroll change was made** — a global policy would touch every screen for no
+benefit. Re-open if the owner sees a jump on the device.
+
+**Tests** (2026-07-29): Vitest 121/121, Playwright 39/39 (run twice, stable), `check:precache` OK
+(27 files). Cache `gt-v0.21.0`. New coverage: superset route parsing including self-pairing and
+malformed pairs; two exercises logging independently on one screen across two alternating rounds, the
+sets landing against the right exercises; the pair surviving a reload; swapping the panels; quick
+entry absent from compact panels while the per-panel guard still refuses a double tap; and the
+archived/deleted fallbacks.
+
+**Still outstanding:** the owner's device pass on the iPhone — see `docs/HANDOFF.md`.
 
 
 New coverage: the add lands on the logging screen with the chosen group applied; no chip selected

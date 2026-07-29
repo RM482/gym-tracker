@@ -1,15 +1,15 @@
 # Handoff — resume here
 
-Last updated: 2026-07-25, end of change set 2. Written so Claude, Codex, or the owner can pick this up cold.
+Last updated: 2026-07-29, end of change set 3. Written so Claude, Codex, or the owner can pick this up cold.
 
 ## Where things stand
 
-The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 (first round of real-use feedback) shipped on 2026-07-21; change set 2 (second round) shipped on 2026-07-25.
+The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 shipped 2026-07-21; change set 2 shipped 2026-07-25; **change set 3 is complete locally and NOT YET PUSHED**.
 
 - Live: <https://rm482.github.io/gym-tracker/> — repo `RM482/gym-tracker`, GitHub Pages from `main`. Push to `main` = deploy.
-- Working tree clean, `main` in sync with `origin/main`; change set 2 shipped in commit `8d1c250`.
-- Service-worker cache `gt-v0.17.0`. **`DB_VERSION = 2`** (unchanged — change set 2 touched no schema).
-- Tests green: **Vitest 117/117, Playwright 26/26, `check:precache` OK.**
+- **`main` is ahead of `origin/main` by six commits (change set 3).** The live site is still on change set 2 until that is pushed.
+- Service-worker cache `gt-v0.21.0`. **`DB_VERSION = 2`** (unchanged — change set 3 touched no schema).
+- Tests green: **Vitest 121/121, Playwright 39/39, `check:precache` OK (27 files).**
 
 ```bash
 npm install          # once
@@ -21,7 +21,16 @@ npm run serve        # http://localhost:4173
 
 ## The one thing outstanding
 
-**The owner's device pass on their iPhone.** Nothing is blocked on code; this is the acceptance step. Carried over from change set 1:
+**The owner's device pass on their iPhone, then the push.** Nothing is blocked on code. Change set 3 changes nothing about stored data (no migration), so it is safe to deploy, but an export beforehand is still the standing habit.
+
+New in change set 3, worth trying first:
+
+A. Add an exercise from Home — it should take the name *and* a group in one sheet, then drop you straight into that exercise ready to log.
+B. Manage → "Group several exercises…" → pick Arms → tap down the list. Each tap saves as you go; tapping a ticked row puts it back to Ungrouped.
+C. Tap a group heading on Home to fold it away. It should still be folded next time you open the app.
+D. Open an exercise → "⇄ Superset with…" → pick the partner. Both stay on one screen; log alternating sets without navigating. ⇄ in the header swaps which is on top.
+
+Carried over from change set 1:
 
 1. Tag a few exercises (Manage → ⋯ → Muscle group). They start Ungrouped by design.
 2. Use the machine add-on toggle mid-workout; check the `+on` badge reads well in history.
@@ -35,7 +44,7 @@ Added by change set 2:
 
 Also still unverified on a real device, from the original plan's device script: Add to Home Screen, dictation into quick entry, the Files/share sheet for export, force-quit persistence, and the update toast on a live deploy. Browser automation cannot truthfully cover these.
 
-When the next round of feedback arrives, treat it as change set 3 and follow the same process (below).
+When the next round of feedback arrives, treat it as change set 4 and follow the same process (below).
 
 ## What changed in change set 1
 
@@ -67,15 +76,32 @@ Owner reported one regression and asked for three additions; all four done. No s
 
 **Process note (deviation):** unlike change set 1, this round was implemented and deployed directly, without a design brief or an independent Codex review round. It is small, self-contained and fully tested, but if the owner wants the same review gate applied retrospectively, run Codex read-only over the change-set-2 diff per the process below.
 
+## What changed in change set 3
+
+Owner reported four things; all four are done. Full reasoning in `docs/PROGRESS.md` (2026-07-29) and `docs/reviews/CHANGE_SET_3_*`.
+
+| # | Item | Outcome |
+|---|------|---------|
+| 1 | Adding an exercise returned to the main menu | The add sheet now takes name + optional group together, then lands on that exercise's logging screen. **D9**, amending D8. Manage's add and the starter chips deliberately stay put. |
+| 2 | Mass grouping | `#/manage/group/<Group>`: pick the group, tap down the list, each tap writes immediately. **D11**. |
+| 3 | Supersets | `#/superset/<idA>/<idB>`: two stacked compact entry panels on one screen, ad-hoc pair held in the route, no stored pairs. **D10**. |
+| 4 | Fold groups away | Foldable Home sections with ▸/▾ and a count, remembered in `settings.collapsedGroups`. |
+
+Plus, as a prerequisite of item 3: the entry block was **extracted from `log.js` into `js/ui/entry-panel.js`** so the superset screen could reuse it rather than fork it. Characterisation tests were written *before* the move (`tests/browser/entry-panel.spec.js`) and no existing assertion was edited — only import lines in `tests/log.test.js`.
+
+Also fixed on the way: a **pre-existing flaky browser test** (plateau nudge) that typed into the entry inputs without waiting for the post-save re-render.
+
 ## Decisions that bind future work
 
-Recorded in `docs/DECISIONS.md` (D1–D8). The ones most likely to be re-litigated:
+Recorded in `docs/DECISIONS.md` (D1–D11). The ones most likely to be re-litigated:
 
 - **D4** — Fitbit/calorie import rejected: needs a developer app, OAuth and online-only APIs, against the no-login/offline/local-first design. Duration is derived locally from set timestamps instead; calories are deliberately absent rather than invented.
 - **D6** — the plateau nudge is **in-app**, not an OS notification, for the same reason.
 - **D7** — the add-on's weight is unknown and must never be guessed into `weightKg`. `beatsBaseline()` in `stats.js` deliberately refuses to claim an ordering it cannot establish (notably: dropping the add-on and adding weight is *not* provably heavier). If the owner ever measures the add-on, an optional per-exercise `addOnKg` can fold in **without** another set-schema change.
 - **D5** — zoom: deliberate pinch-zoom stays available (plan §13 accessibility). Do not add `user-scalable=no`.
-- **D8** — muscle groups: curated list only, Home-only grouping, no enable/disable setting.
+- **D8** — muscle groups: curated list only, Home-only grouping, no enable/disable setting. **Amended by D9**: an exercise may now be grouped as it is added.
+- **D10** — supersets are ad-hoc and live in the route; no stored pairs, no schema change. Each panel keeps its **own** write guard, and `parseRoute` rejects an exercise supersetted with itself, because two panels over one exercise would mean two live Save buttons for the same target.
+- **D11** — bulk grouping keeps its mode in the route and writes on every tap, because the app re-renders on focus/visibilitychange and anything held in a render closure is silently lost when the phone locks.
 
 ## Schema and deploy rules
 
@@ -107,6 +133,7 @@ Anything touching the owner's data on their phone: ask them to export a backup f
 ## Known gaps, deliberately left
 
 - No browser test for the `DbTooOldError` recovery screen (unit-tested at the database layer; the screen is a static render of a known branch).
+- No scroll-restoration policy in `app.js`. Measured on WebKit at iPhone viewport: saving from the lower superset panel moves the scroll only when the page genuinely shortens and the browser clamps; with a stable page height it does not move. Re-open only if the owner sees a jump on the device.
 - No end-to-end browser test of add-on correction via quick-entry / repeat / the set editor (each is unit-tested through the store; the toggle itself is browser-tested).
 - Device-only behaviours listed above.
 

@@ -443,6 +443,14 @@ button:disabled { cursor: default; }
 .grouping-row[aria-pressed='true'] { border-color: var(--accent); }
 .grouping-row[aria-pressed='true'] .name { font-weight: 600; }
 
+/* Superset: two stacked panels, each a full-width compact entry panel. Keeping
+   the controls full width is the whole reason this is not a side-by-side split
+   — halved stepper buttons are the ones you use most between sets. */
+.superset-panel + .superset-panel { margin-top: 1rem; }
+.superset-panel h2 { margin-bottom: 0.25rem; }
+.superset-panel .placeholder { margin: 0.25rem 0; }
+.superset-today { font-weight: 600; }
+
 /* Already trained today (feedback item 3). Receded, never reordered — rows
    moving between sets would be worse than scanning for them. */
 .list-row.done-today { opacity: 0.62; }

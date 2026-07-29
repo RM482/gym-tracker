@@ -25,6 +25,20 @@ describe('parseRoute', () => {
     expect(parseRoute('#/log/')).toBeNull();
   });
 
+  // The superset pair lives in the route because it is ad-hoc per session.
+  it('parses a superset pair and refuses one exercise supersetted with itself', () => {
+    expect(parseRoute('#/superset/a-1/b-2')).toEqual({ screen: 'superset', params: { aId: 'a-1', bId: 'b-2' } });
+    // Order is meaningful — it decides which panel is on top.
+    expect(parseRoute('#/superset/b-2/a-1')).toEqual({ screen: 'superset', params: { aId: 'b-2', bId: 'a-1' } });
+    // Two panels for ONE exercise would mean two independent write guards and
+    // two live Save buttons for the same target — the duplicate path the single
+    // guard exists to prevent. Rejected at the router.
+    expect(parseRoute('#/superset/a-1/a-1')).toBeNull();
+    expect(parseRoute('#/superset/a-1')).toBeNull();
+    expect(parseRoute('#/superset/a-1/')).toBeNull();
+    expect(parseRoute('#/superset//b-2')).toBeNull();
+  });
+
   // Bulk grouping keeps its target group in the route so a background refresh
   // cannot drop the owner out of the mode.
   it('parses the bulk grouping route, including a group name with a space', () => {

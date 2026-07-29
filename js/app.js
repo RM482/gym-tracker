@@ -1,6 +1,7 @@
 // app.js — bootstrap, hash router, screen mounting, SW registration (plan §5, §14).
 // Public API (for tests): parseRoute(hash) -> { screen, params } | null.
-// Routes (plan §5): #/ #/log/<id> #/history/<id> #/day/<YYYY-MM-DD> #/dashboard #/manage #/settings
+// Routes (plan §5): #/ #/log/<id> #/history/<id> #/day/<YYYY-MM-DD> #/dashboard
+//   #/manage #/manage/group/<Group> #/superset/<idA>/<idB> #/settings
 //
 // Screens receive (el, params, ctx) where ctx = { store, refresh }.
 // The database opens once at boot; open failure renders a plain-language
@@ -15,10 +16,11 @@ import * as history from './ui/history.js';
 import * as day from './ui/day.js';
 import * as dashboard from './ui/dashboard.js';
 import * as manage from './ui/manage.js';
+import * as superset from './ui/superset.js';
 import * as settings from './ui/settings.js';
 import { toast } from './ui/components.js';
 
-const SCREENS = { home, log, history, day, dashboard, manage, settings };
+const SCREENS = { home, log, history, day, dashboard, manage, settings, superset };
 
 export function parseRoute(hash) {
   const path = (hash || '#/').replace(/^#/, '');
@@ -27,6 +29,17 @@ export function parseRoute(hash) {
   if ((m = path.match(/^\/log\/([\w-]+)$/))) return { screen: 'log', params: { exerciseId: m[1] } };
   if ((m = path.match(/^\/history\/([\w-]+)$/))) return { screen: 'history', params: { exerciseId: m[1] } };
   if ((m = path.match(/^\/day\/(\d{4}-\d{2}-\d{2})$/))) return { screen: 'day', params: { date: m[1] } };
+  // Superset: two exercises logged on one screen. The pair lives in the route
+  // because the owner picks a partner fresh each session — nothing is stored,
+  // and iOS restoring the app to its last hash restores the pair for free.
+  // Identical ids are rejected as a SAFETY requirement, not tidiness: two
+  // panels for one exercise means two independent write guards and therefore
+  // two live Save buttons for the same target, which is exactly the duplicate
+  // path the single guard exists to prevent (plan §12).
+  if ((m = path.match(/^\/superset\/([\w-]+)\/([\w-]+)$/))) {
+    if (m[1] === m[2]) return null;
+    return { screen: 'superset', params: { aId: m[1], bId: m[2] } };
+  }
   if (path === '/dashboard') return { screen: 'dashboard', params: {} };
   // Bulk muscle-group assignment. The target group lives in the route rather
   // than in module state, so returning to the app (which re-renders on focus

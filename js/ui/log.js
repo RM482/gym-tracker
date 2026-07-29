@@ -122,4 +122,26 @@ export async function render(el, { exerciseId }, ctx) {
   // duplicate-write guard shared by all of them. The superset screen builds two
   // of these, so the logic must not be duplicated here.
   el.appendChild(buildEntryPanel({ ex, prev, todaySets, settings, ctx }));
+
+  // Supersets are started from inside one of the two exercises, because that is
+  // where the owner is when they decide to pair it with something.
+  const others = (await ctx.store.listExercises()).filter((x) => x.id !== ex.id);
+  if (others.length > 0) el.appendChild(supersetButton(ex, others));
+}
+
+function supersetButton(ex, others) {
+  const btn = document.createElement('button');
+  btn.className = 'btn-secondary';
+  btn.textContent = '⇄ Superset with…';
+  btn.addEventListener('click', () => {
+    btn.focus();
+    menuSheet({
+      title: `Superset ${ex.name} with…`,
+      items: others.map((other) => ({
+        label: other.name,
+        onTap: () => { location.hash = `#/superset/${ex.id}/${other.id}`; },
+      })),
+    });
+  });
+  return btn;
 }
