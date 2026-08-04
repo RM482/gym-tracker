@@ -1,14 +1,14 @@
 # Handoff — resume here
 
-Last updated: 2026-08-04. Change set 5 is BUILT BUT NOT DEPLOYED — see below. Written so Claude, Codex, or the owner can pick this up cold.
+Last updated: 2026-08-04, after deploying change set 5 (schema v3). Written so Claude, Codex, or the owner can pick this up cold.
 
 ## Where things stand
 
-The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 shipped 2026-07-21; change set 2 shipped 2026-07-25; change set 3 shipped 2026-08-04; change set 4 (superset-picker scrolling) shipped the same day.
+The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 shipped 2026-07-21; change set 2 shipped 2026-07-25; change set 3 shipped 2026-08-04; change set 4 (superset-picker scrolling) and change set 5 (per-set intensity, schema v3) shipped the same day.
 
 - Live: <https://rm482.github.io/gym-tracker/> — repo `RM482/gym-tracker`, GitHub Pages from `main`. Push to `main` = deploy.
 - Working tree clean, `main` in sync with `origin/main`; change set 3 shipped in commits `96c011e`–`ede64d0`, Pages build verified serving `gt-v0.21.0`.
-- Live cache `gt-v0.22.0` at `DB_VERSION = 2`. **Locally, change set 5 sits at `gt-v0.25.0` with `DB_VERSION = 3` and is deliberately unpushed** until the owner confirms a backup (see the rule at the end of this file).
+- Working tree clean, `main` in sync with `origin/main`. Live cache `gt-v0.25.0`, **`DB_VERSION = 3`**. The v2→v3 migration was deployed after the owner confirmed a backup.
 - Tests green: **Vitest 134/134, Playwright 49/49, `check:precache` OK (28 files).**
 
 ```bash
@@ -28,6 +28,7 @@ New in change set 3, worth trying first:
 A. Add an exercise from Home — it should take the name *and* a group in one sheet, then drop you straight into that exercise ready to log.
 B. Manage → "Group several exercises…" → pick Arms → tap down the list. Each tap saves as you go; tapping a ticked row puts it back to Ungrouped.
 C. Tap a group heading on Home to fold it away. It should still be folded next time you open the app.
+E. Under Reps: "How did that feel?" — Easy / OK / Struggled, optional, per set, and deliberately NOT carried over between sets. Check old sets survived the upgrade unflagged.
 D. Open an exercise → "⇄ Superset with…" → pick the partner. The picker is grouped and foldable and scrolls; both exercises then stay on one screen, so you log alternating sets without navigating. ⇄ in the header swaps which is on top.
 
 Carried over from change set 1:

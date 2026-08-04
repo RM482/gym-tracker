@@ -1,13 +1,11 @@
 # Progress log
 
-> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 5 complete
-> locally at `gt-v0.25.0` with **`DB_VERSION = 3`**, tests green (Vitest 134, Playwright 49).
-> **NOT DEPLOYED — held until the owner confirms they have exported a backup** (`HANDOFF.md`).
-> Change set 4 is live at `gt-v0.22.0`.
+> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 5 deployed
+> 2026-08-04 at `gt-v0.25.0` with **`DB_VERSION = 3`**, tests green (Vitest 134, Playwright 49).
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
-## 2026-08-04 — Change set 5: per-set intensity flag (schema v3) ⏸ built, awaiting backup before deploy
+## 2026-08-04 — Change set 5: per-set intensity flag (schema v3) ✅
 
 Owner: *"I'd like to add an option to flag how intense an exercise was for me, so I know the next time
 if I struggled to finish the set or if I can go up in weights."*
@@ -77,10 +75,14 @@ set shows nothing rather than a middle value. The analysis export gains an `inte
 **Tests** (2026-08-04): Vitest 134/134, Playwright 49/49 (run twice, stable), `check:precache` OK.
 Cache `gt-v0.22.0` → `gt-v0.25.0`. `DB_VERSION` 2 → **3**.
 
-**Next step: the owner exports a backup and confirms, then this deploys as ONE release.** The brief
-called the inert schema slice separately deployable; `HANDOFF.md` requires holding any change that
-touches phone data until the owner confirms a backup, and two deploys would mean two migrations'
-worth of exposure for no benefit.
+**Deployed 2026-08-04**, as one release, after the owner confirmed they had exported a backup — the
+gate `HANDOFF.md` requires for anything touching phone data, which the brief had wrongly waived by
+calling the inert schema slice separately deployable. Verified live: `sw.js` serving `gt-v0.25.0`,
+`js/db.js` serving `DB_VERSION = 3` with the `INTENSITIES` enum and `DbUpgradeError`, and
+`intensityPicker` present in the served `components.js`.
+
+**Still outstanding:** the owner's device pass — in particular confirming the v2→v3 migration ran
+cleanly on the real phone (old sets still present, unflagged) the first time the app opens.
 
 
 ## 2026-08-04 — Change set 4: the superset picker could not be scrolled ✅
