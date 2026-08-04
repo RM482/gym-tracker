@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect } from 'vitest';
-import { openDb, DB_VERSION, DbTooOldError, DbBlockedError, migrations } from '../js/db.js';
+import { openDb, DB_VERSION, DbTooOldError, DbBlockedError, DbUpgradeError, migrations } from '../js/db.js';
 
 let n = 0;
 const fresh = () => `db-test-${++n}`;
@@ -52,6 +52,42 @@ describe('migration machinery (synthetic steps above the shipped version, plan Â
     const [rec] = await h.run('sets', 'readonly', (s) => s.sets.getAll());
     expect(rec.synthetic).toBe(true);
     h.close();
+  });
+
+  // A migration that fails must never be mistaken for a broken database. The
+  // recovery UI counts generic open failures toward offering the destructive
+  // reset screen; an aborted upgrade leaves the data intact at the old version
+  // and the only fix is corrected code, so it gets its own type that is exempt.
+  it('reports a failed upgrade as DbUpgradeError, whether it throws in structural or in a record transform', async () => {
+    // (a) synchronous failure in structural
+    const a = fresh();
+    let h = await openDb({ name: a });
+    await h.run('exercises', 'readwrite', (s) => s.exercises.put({ id: 'e1', name: 'Bench' }));
+    h.close();
+    await expect(openDb({
+      name: a,
+      _version: DB_VERSION + 1,
+      _migrations: { [DB_VERSION]: { structural: () => { throw new Error('migration bug'); } } },
+    })).rejects.toBeInstanceOf(DbUpgradeError);
+
+    // (b) failure inside a RECORD transform, which throws in a cursor callback
+    // and so surfaces as a transaction abort rather than synchronously.
+    const b = fresh();
+    h = await openDb({ name: b });
+    await h.run('sets', 'readwrite', (s) => s.sets.put({ id: 's1', exerciseId: 'e1', weightKg: 10, reps: 8, performedAtMs: 5, tzOffsetMin: 0, workoutDay: 'd', createdAtMs: 5, updatedAtMs: 5 }));
+    h.close();
+    await expect(openDb({
+      name: b,
+      _version: DB_VERSION + 1,
+      _migrations: { [DB_VERSION]: { records: { sets: () => { throw new Error('bad transform'); } } } },
+    })).rejects.toBeInstanceOf(DbUpgradeError);
+
+    // The database is untouched: still openable at the old version, record intact.
+    const after = await openDb({ name: b });
+    const [rec] = await after.run('sets', 'readonly', (s) => s.sets.getAll());
+    expect(rec.id).toBe('s1');
+    expect(rec.weightKg).toBe(10);
+    after.close();
   });
 
   it('aborts atomically on a failing migration, leaving the old version intact', async () => {

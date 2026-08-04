@@ -47,6 +47,21 @@ export class DbTooOldError extends Error {
   constructor() { super('This app version is older than the data stored on this device'); }
 }
 
+// Raised when a schema upgrade failed. IndexedDB rolls the version-change
+// transaction back atomically, so the data is intact at the OLD version and the
+// fix is always to ship corrected code — never to erase anything. Without its
+// own type this arrives as a generic open failure, which the recovery UI counts
+// toward offering the destructive reset screen (app.js): the app would be
+// telling the owner to wipe an intact database because of a bug in the new
+// release. Like DbTooOldError, this has a known safe fix and must never lead
+// there.
+export class DbUpgradeError extends Error {
+  constructor(cause) {
+    super('A database upgrade did not complete; your data is unchanged');
+    this.cause = cause;
+  }
+}
+
 function bootstrap(db) {
   const sets = db.createObjectStore('sets', { keyPath: 'id' });
   sets.createIndex('byExercise', 'exerciseId');
@@ -95,13 +110,18 @@ export function openDb({ name = 'gym-tracker', onVersionChange = null, _version 
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(name, _version);
     req.onblocked = () => reject(new DbBlockedError());
+    let upgrading = false;
     req.onupgradeneeded = (e) => {
+      // Anything that fails from here on failed during an upgrade, including a
+      // record transform that throws asynchronously inside a cursor callback —
+      // that surfaces later as an abort on req.onerror, not here.
+      upgrading = e.oldVersion !== 0;
       try {
         if (e.oldVersion === 0) bootstrap(req.result);
         else applyMigrations(req.result, req.transaction, e.oldVersion, _version, _migrations);
       } catch (err) {
         req.transaction.abort();
-        reject(err);
+        reject(new DbUpgradeError(err));
       }
     };
     req.onsuccess = () => {
@@ -111,7 +131,10 @@ export function openDb({ name = 'gym-tracker', onVersionChange = null, _version 
     };
     req.onerror = () => {
       const err = req.error;
-      reject(err?.name === 'VersionError' ? new DbTooOldError() : err);
+      if (err?.name === 'VersionError') { reject(new DbTooOldError()); return; }
+      // A transform that threw inside a cursor callback aborts the transaction
+      // and lands here rather than in the try/catch above.
+      reject(upgrading ? new DbUpgradeError(err) : err);
     };
   });
 }
