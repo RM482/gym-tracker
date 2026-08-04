@@ -1,7 +1,10 @@
 // components.js — shared UI pieces: header, placeholder, toast, bottom sheets,
-// and small formatting helpers used by several screens.
+// muscle-group sectioning, and small formatting helpers used by several screens.
 // Public API: header, placeholder, toast, sheet, promptSheet, confirmSheet,
-//             menuSheet, formatDayLabel, sessionSummary
+//             menuSheet, groupExercises, groupToggleButton, fmtSet,
+//             formatDayLabel, sessionSummary
+
+import { MUSCLE_GROUPS, UNGROUPED_KEY } from '../store.js';
 
 export function header({ title, back = null, actions = [] }) {
   const h = document.createElement('div');
@@ -172,6 +175,42 @@ export function menuSheet({ title, items }) {
       card.appendChild(cancel);
     },
   });
+}
+
+// ---------- muscle-group sections ----------
+
+// Fixed section order: the taxonomy, then never-assigned exercises last.
+// "Other" is a deliberate choice and stays in the taxonomy; "Ungrouped" means
+// the owner has not categorised it yet, which is a different thing (F5).
+// Shared by Home and the superset picker so the two cannot order or label
+// their sections differently.
+export function groupExercises(exercises) {
+  const sections = new Map([...MUSCLE_GROUPS, UNGROUPED_KEY].map((name) => [name, []]));
+  for (const ex of exercises) sections.get(ex.muscleGroup ?? UNGROUPED_KEY).push(ex);
+  return [...sections].filter(([, rows]) => rows.length > 0).map(([name, rows]) => ({ name, rows }));
+}
+
+// The fold control for one section: "▾ Legs (4)". The arrow is decorative and
+// the state is carried by aria-expanded, so it is announced rather than only
+// drawn. Returns paint() so a caller that forces sections open (Home does,
+// while its filter has text) can repaint without rebuilding.
+export function groupToggleButton({ name, count, expanded, onToggle }) {
+  const btn = document.createElement('button');
+  btn.className = 'group-toggle';
+  btn.dataset.group = name;
+  const arrow = document.createElement('span');
+  arrow.className = 'group-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  const label = document.createElement('span');
+  label.textContent = `${name} (${count})`;
+  btn.append(arrow, label);
+  const paint = (open) => {
+    btn.setAttribute('aria-expanded', String(open));
+    arrow.textContent = open ? '▾' : '▸';
+  };
+  paint(expanded);
+  if (onToggle) btn.addEventListener('click', onToggle);
+  return { btn, paint };
 }
 
 // ---------- formatting ----------

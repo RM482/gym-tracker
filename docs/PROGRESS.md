@@ -1,11 +1,46 @@
 # Progress log
 
-> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 3 built
-> 2026-07-29 and **deployed 2026-08-04** at `gt-v0.21.0` (`DB_VERSION = 2`, unchanged — no schema
-> change), tests green (Vitest 121, Playwright 39). The owner's device pass on their iPhone is
-> outstanding.
+> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 4 deployed
+> 2026-08-04 at `gt-v0.22.0` (`DB_VERSION = 2`, unchanged), tests green (Vitest 121, Playwright 43).
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
+
+## 2026-08-04 — Change set 4: the superset picker could not be scrolled ✅
+
+First feedback from real use of change set 3, reported within hours of the deploy: *"When I want to
+add a superset, I can't scroll the list of exercises. I'd need to be able to scroll them, but ideally
+would also have them grouped in their groups (in a foldable way)."*
+
+**Reproduced before fixing.** With 20 exercises at iPhone viewport, the sheet's top sat **337 px above
+the screen** — the title and the first third of the list were unreachable, and so was Cancel. Root
+cause: `.sheet` had neither `max-height` nor `overflow`, so it grew to its content and the bottom-
+anchored overlay pushed the overflow off the top. This was latent for every sheet in the app; only
+the superset picker has an unbounded number of rows, so only it hit the limit. Change set 3 shipped
+it because its own tests used two exercises.
+
+**Fixed at the root**, not just for the picker: `.sheet` is now capped at `85dvh` with `overflow-y:
+auto` and `overscroll-behavior: contain`. `dvh` is declared after `vh` so it wins where supported —
+on iOS a `vh` cap ignores the browser chrome and would still overflow.
+
+**New `js/ui/exercise-picker.js`** replaces the flat `menuSheet` for choosing a superset partner:
+sections in the same taxonomy order as Home, each with a fold arrow and a count, and the exercise you
+are supersetting *from* excluded. Its **list** scrolls rather than the whole sheet, so the title and
+Cancel stay put instead of scrolling away from someone halfway down a long list.
+
+**Fold state is shared with Home** (`settings.collapsedGroups`), so folding Legs in the picker folds
+it on Home and vice versa — one preference, not one per screen.
+
+To keep the two lists from drifting, `groupExercises` moved out of `home.js` into `components.js` and
+the fold control became a shared `groupToggleButton()`; Home and the picker now build sections from
+one implementation. Same reasoning as `exercise-actions.js` in change set 2 and `entry-panel.js` in
+change set 3.
+
+**Tests** (2026-08-04): Vitest 121/121, Playwright 43/43, `check:precache` OK (28 files). Cache
+`gt-v0.21.0` → `gt-v0.22.0`. New coverage (all four written to fail first): the picker fits on screen
+with its last section reachable and Cancel always in view; sections grouped, counted and foldable with
+the source exercise excluded; picking a partner opens that superset; the fold preference shared with
+Home.
+
 
 ## 2026-07-29 — Change set 3: four owner-feedback items ✅
 

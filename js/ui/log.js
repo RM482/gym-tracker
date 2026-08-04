@@ -12,6 +12,7 @@ import { plateauNudge } from '../stats.js';
 import { openSetEditor } from './set-editor.js';
 import { renameExerciseFlow, muscleGroupSheet } from './exercise-actions.js';
 import { buildEntryPanel } from './entry-panel.js';
+import { pickExerciseSheet } from './exercise-picker.js';
 
 function lastTimeLabel(day, today) {
   const label = formatDayLabel(day, today);
@@ -126,21 +127,24 @@ export async function render(el, { exerciseId }, ctx) {
   // Supersets are started from inside one of the two exercises, because that is
   // where the owner is when they decide to pair it with something.
   const others = (await ctx.store.listExercises()).filter((x) => x.id !== ex.id);
-  if (others.length > 0) el.appendChild(supersetButton(ex, others));
+  if (others.length > 0) el.appendChild(supersetButton(ex, others, settings, ctx));
 }
 
-function supersetButton(ex, others) {
+// The partner list is grouped and foldable rather than a flat menu: with a real
+// exercise list a flat sheet outgrew the screen and could not be scrolled
+// (owner feedback, change set 4).
+function supersetButton(ex, others, settings, ctx) {
   const btn = document.createElement('button');
   btn.className = 'btn-secondary';
   btn.textContent = '⇄ Superset with…';
   btn.addEventListener('click', () => {
     btn.focus();
-    menuSheet({
+    pickExerciseSheet({
       title: `Superset ${ex.name} with…`,
-      items: others.map((other) => ({
-        label: other.name,
-        onTap: () => { location.hash = `#/superset/${ex.id}/${other.id}`; },
-      })),
+      exercises: others,
+      collapsedGroups: settings.collapsedGroups,
+      onPick: (other) => { location.hash = `#/superset/${ex.id}/${other.id}`; },
+      onFoldChange: (groups) => { ctx.store.updateSettings({ collapsedGroups: groups }).catch(() => {}); },
     });
   });
   return btn;

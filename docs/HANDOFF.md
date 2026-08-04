@@ -1,15 +1,15 @@
 # Handoff — resume here
 
-Last updated: 2026-08-04, after deploying change set 3. Written so Claude, Codex, or the owner can pick this up cold.
+Last updated: 2026-08-04, after deploying change set 4. Written so Claude, Codex, or the owner can pick this up cold.
 
 ## Where things stand
 
-The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 shipped 2026-07-21; change set 2 shipped 2026-07-25; change set 3 shipped 2026-08-04.
+The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 shipped 2026-07-21; change set 2 shipped 2026-07-25; change set 3 shipped 2026-08-04; change set 4 (superset-picker scrolling) shipped the same day.
 
 - Live: <https://rm482.github.io/gym-tracker/> — repo `RM482/gym-tracker`, GitHub Pages from `main`. Push to `main` = deploy.
 - Working tree clean, `main` in sync with `origin/main`; change set 3 shipped in commits `96c011e`–`ede64d0`, Pages build verified serving `gt-v0.21.0`.
-- Service-worker cache `gt-v0.21.0`. **`DB_VERSION = 2`** (unchanged — change set 3 touched no schema).
-- Tests green: **Vitest 121/121, Playwright 39/39, `check:precache` OK (27 files).**
+- Service-worker cache `gt-v0.22.0`. **`DB_VERSION = 2`** (unchanged — neither change set 3 nor 4 touched the schema).
+- Tests green: **Vitest 121/121, Playwright 43/43, `check:precache` OK (28 files).**
 
 ```bash
 npm install          # once
@@ -28,7 +28,7 @@ New in change set 3, worth trying first:
 A. Add an exercise from Home — it should take the name *and* a group in one sheet, then drop you straight into that exercise ready to log.
 B. Manage → "Group several exercises…" → pick Arms → tap down the list. Each tap saves as you go; tapping a ticked row puts it back to Ungrouped.
 C. Tap a group heading on Home to fold it away. It should still be folded next time you open the app.
-D. Open an exercise → "⇄ Superset with…" → pick the partner. Both stay on one screen; log alternating sets without navigating. ⇄ in the header swaps which is on top.
+D. Open an exercise → "⇄ Superset with…" → pick the partner. The picker is grouped and foldable and scrolls; both exercises then stay on one screen, so you log alternating sets without navigating. ⇄ in the header swaps which is on top.
 
 Carried over from change set 1:
 
@@ -132,6 +132,7 @@ Anything touching the owner's data on their phone: ask them to export a backup f
 
 ## Known gaps, deliberately left
 
+- Sheets are capped at `85dvh`. A future sheet with a lot of content should scroll rather than grow; `.picker-list` is the pattern for keeping a title and Cancel fixed while the list scrolls.
 - No browser test for the `DbTooOldError` recovery screen (unit-tested at the database layer; the screen is a static render of a known branch).
 - No scroll-restoration policy in `app.js`. Measured on WebKit at iPhone viewport: saving from the lower superset panel moves the scroll only when the page genuinely shortens and the browser clamps; with a stable page height it does not move. Re-open only if the owner sees a jump on the device.
 - No end-to-end browser test of add-on correction via quick-entry / repeat / the set editor (each is unit-tested through the store; the toggle itself is browser-tested).

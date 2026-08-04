@@ -5,20 +5,11 @@
 // 12 exercises; the backup reminder follows plan §6.1 timing. Sections fold
 // away with a ▸/▾ arrow, remembered between visits (change set 3).
 
-import { header, formatDayLabel, sessionSummary } from './components.js';
+import { header, formatDayLabel, sessionSummary, groupExercises, groupToggleButton } from './components.js';
 import { exerciseAddSheet } from './exercise-actions.js';
-import { MUSCLE_GROUPS, UNGROUPED_KEY as UNGROUPED, isBackupOverdue } from '../store.js';
+import { isBackupOverdue } from '../store.js';
 
 const STARTERS = ['Bench press', 'Squat', 'Deadlift', 'Overhead press', 'Row', 'Lat pulldown', 'Leg press', 'Biceps curl'];
-
-// Fixed section order: the taxonomy, then never-assigned exercises last.
-// "Other" is a deliberate choice and stays in the taxonomy; "Ungrouped" means
-// the owner has not categorised it yet, which is a different thing (F5).
-export function groupExercises(exercises) {
-  const sections = new Map([...MUSCLE_GROUPS, UNGROUPED].map((name) => [name, []]));
-  for (const ex of exercises) sections.get(ex.muscleGroup ?? UNGROUPED).push(ex);
-  return [...sections].filter(([, rows]) => rows.length > 0).map(([name, rows]) => ({ name, rows }));
-}
 
 export async function render(el, params, ctx) {
   el.appendChild(header({
@@ -96,44 +87,33 @@ export async function render(el, params, ctx) {
   el.appendChild(addButton(ctx));
 }
 
-// A group heading that folds its rows away. The arrow is decorative; the state
-// is carried by aria-expanded so it is announced rather than only drawn (the
-// same reasoning as the F6 fix, where an aria-label override was removed
-// because it destroyed the computed name).
+// A group heading that folds its rows away. The button itself is shared with
+// the superset picker (components.groupToggleButton) so the two lists cannot
+// label or announce their sections differently.
 function groupHeading(section, collapsed, ctx, onToggle) {
   const el = document.createElement('h2');
   el.className = 'section-label group-heading';
   el.dataset.group = section.name;
 
-  const btn = document.createElement('button');
-  btn.className = 'group-toggle';
-  btn.dataset.group = section.name;
-  const arrow = document.createElement('span');
-  arrow.className = 'group-arrow';
-  arrow.setAttribute('aria-hidden', 'true');
-  const label = document.createElement('span');
-  label.textContent = `${section.name} (${section.rows.length})`;
-  btn.append(arrow, label);
+  const { btn, paint: paintBtn } = groupToggleButton({
+    name: section.name,
+    count: section.rows.length,
+    expanded: !collapsed.has(section.name),
+    onToggle: () => {
+      if (collapsed.has(section.name)) collapsed.delete(section.name);
+      else collapsed.add(section.name);
+      onToggle();
+      // Persisted so the list stays as short as the owner left it. updateSettings
+      // does not touch lastDataChangeAtMs, so folding correctly does not count as
+      // a data change and cannot trigger the backup reminder.
+      ctx.store.updateSettings({ collapsedGroups: [...collapsed] }).catch(() => {});
+    },
+  });
   el.appendChild(btn);
 
   // While a filter is active every section is forced open, so the control
   // reports the state the owner can actually see, not the stored one.
-  const paint = (filtering = false) => {
-    const open = filtering || !collapsed.has(section.name);
-    btn.setAttribute('aria-expanded', String(open));
-    arrow.textContent = open ? '▾' : '▸';
-  };
-  paint();
-
-  btn.addEventListener('click', () => {
-    if (collapsed.has(section.name)) collapsed.delete(section.name);
-    else collapsed.add(section.name);
-    onToggle();
-    // Persisted so the list stays as short as the owner left it. updateSettings
-    // does not touch lastDataChangeAtMs, so folding correctly does not count as
-    // a data change and cannot trigger the backup reminder.
-    ctx.store.updateSettings({ collapsedGroups: [...collapsed] }).catch(() => {});
-  });
+  const paint = (filtering = false) => paintBtn(filtering || !collapsed.has(section.name));
 
   return { el, group: section.name, paint };
 }
