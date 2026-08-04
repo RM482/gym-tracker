@@ -1,13 +1,13 @@
 # Handoff — resume here
 
-Last updated: 2026-07-29, end of change set 3. Written so Claude, Codex, or the owner can pick this up cold.
+Last updated: 2026-08-04, after deploying change set 3. Written so Claude, Codex, or the owner can pick this up cold.
 
 ## Where things stand
 
-The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 shipped 2026-07-21; change set 2 shipped 2026-07-25; **change set 3 is complete locally and NOT YET PUSHED**.
+The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 2026-07-19; change set 1 shipped 2026-07-21; change set 2 shipped 2026-07-25; change set 3 shipped 2026-08-04.
 
 - Live: <https://rm482.github.io/gym-tracker/> — repo `RM482/gym-tracker`, GitHub Pages from `main`. Push to `main` = deploy.
-- **`main` is ahead of `origin/main` by six commits (change set 3).** The live site is still on change set 2 until that is pushed.
+- Working tree clean, `main` in sync with `origin/main`; change set 3 shipped in commits `96c011e`–`ede64d0`, Pages build verified serving `gt-v0.21.0`.
 - Service-worker cache `gt-v0.21.0`. **`DB_VERSION = 2`** (unchanged — change set 3 touched no schema).
 - Tests green: **Vitest 121/121, Playwright 39/39, `check:precache` OK (27 files).**
 
@@ -21,7 +21,7 @@ npm run serve        # http://localhost:4173
 
 ## The one thing outstanding
 
-**The owner's device pass on their iPhone, then the push.** Nothing is blocked on code. Change set 3 changes nothing about stored data (no migration), so it is safe to deploy, but an export beforehand is still the standing habit.
+**The owner's device pass on their iPhone.** Nothing is blocked on code; this is the acceptance step. Change set 3 is deployed and changed nothing about stored data (no migration).
 
 New in change set 3, worth trying first:
 

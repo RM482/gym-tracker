@@ -1,8 +1,9 @@
 # Progress log
 
-> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 3 complete
-> locally at `gt-v0.21.0` (`DB_VERSION = 2`, unchanged — no schema change), tests green
-> (Vitest 121, Playwright 39). Not yet pushed; the owner's device pass on their iPhone is outstanding.
+> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 3 built
+> 2026-07-29 and **deployed 2026-08-04** at `gt-v0.21.0` (`DB_VERSION = 2`, unchanged — no schema
+> change), tests green (Vitest 121, Playwright 39). The owner's device pass on their iPhone is
+> outstanding.
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
 
@@ -151,7 +152,9 @@ sets landing against the right exercises; the pair surviving a reload; swapping 
 entry absent from compact panels while the per-panel guard still refuses a double tap; and the
 archived/deleted fallbacks.
 
-**Still outstanding:** the owner's device pass on the iPhone — see `docs/HANDOFF.md`.
+**Deployed 2026-08-04.** Pushed `96c011e`–`ede64d0` to `main`; GitHub Pages build `ede64d0` verified
+built, and the live `sw.js` confirmed serving `gt-v0.21.0` with `entry-panel.js` and `superset.js`
+both reachable. **Still outstanding:** the owner's device pass on the iPhone — see `docs/HANDOFF.md`.
 
 
 New coverage: the add lands on the logging screen with the chosen group applied; no chip selected
