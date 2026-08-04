@@ -5,6 +5,7 @@
 //             formatDayLabel, sessionSummary
 
 import { MUSCLE_GROUPS, UNGROUPED_KEY } from '../store.js';
+import { INTENSITIES } from '../db.js';
 
 export function header({ title, back = null, actions = [] }) {
   const h = document.createElement('div');
@@ -213,6 +214,57 @@ export function groupToggleButton({ name, count, expanded, onToggle }) {
   return { btn, paint };
 }
 
+// ---------- intensity ----------
+
+// Owner-facing wording for the stored tokens. The stored value is stable and
+// the label is not: "Struggled" can be reworded without a migration.
+export const INTENSITY_LABELS = { easy: 'Easy', ok: 'OK', hard: 'Struggled' };
+
+// The three-way picker, shared by the entry panel and the set editor so the two
+// cannot drift. Optional throughout: tapping the selected level clears it back
+// to unrecorded, and `null` is a legitimate final answer — it means the owner
+// did not say, never "it was fine".
+export function intensityPicker({ value = null, onChange }) {
+  let current = INTENSITIES.includes(value) ? value : null;
+  const wrap = document.createElement('div');
+  wrap.className = 'intensity-wrap';
+
+  const label = document.createElement('span');
+  label.className = 'stepper-label';
+  label.id = `intensity-label-${Math.random().toString(36).slice(2, 9)}`;
+  label.textContent = 'How did that feel? (optional)';
+
+  const row = document.createElement('div');
+  row.className = 'intensity-row';
+  row.setAttribute('role', 'group');
+  row.setAttribute('aria-labelledby', label.id);
+
+  const buttons = INTENSITIES.map((token) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'intensity-btn';
+    btn.dataset.intensity = token;
+    btn.textContent = INTENSITY_LABELS[token];
+    btn.addEventListener('click', () => {
+      current = current === token ? null : token;
+      paint();
+      onChange?.(current);
+    });
+    row.appendChild(btn);
+    return btn;
+  });
+
+  const paint = () => {
+    for (const btn of buttons) {
+      btn.setAttribute('aria-pressed', String(btn.dataset.intensity === current));
+    }
+  };
+  paint();
+
+  wrap.append(label, row);
+  return { el: wrap, get: () => current };
+}
+
 // ---------- formatting ----------
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -235,7 +287,11 @@ export function formatDayLabel(day, todayDay) {
 // it was in log.js until the entry panel was extracted out of that module.
 export function fmtSet(s) {
   const base = s.weightKg > 0 ? `${s.weightKg} kg × ${s.reps}` : `bw × ${s.reps}`;
-  return s.addOn ? `${base} +on` : base;
+  const withAddOn = s.addOn ? `${base} +on` : base;
+  // The owner's wording, not the stored token. An unrecorded set shows nothing
+  // rather than a middle value — "not said" is not "OK".
+  const felt = INTENSITY_LABELS[s.intensity];
+  return felt ? `${withAddOn} ${felt}` : withAddOn;
 }
 
 // One-line session summary (plan §6.1): "3 sets · top 10 kg" / "3 sets · best 12 reps".

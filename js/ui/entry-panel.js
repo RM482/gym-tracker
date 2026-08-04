@@ -17,7 +17,7 @@
 //
 // Exported for unit tests: pickRepeatSet(prevSets, todayCount).
 
-import { fmtSet, toast } from './components.js';
+import { fmtSet, toast, intensityPicker, INTENSITY_LABELS } from './components.js';
 import { epley, bestE1rm } from '../stats.js';
 import { parseQuickEntry } from '../parser.js';
 import * as platform from '../platform.js';
@@ -123,6 +123,15 @@ export function buildEntryPanel({ ex, prev, todaySets, settings, ctx, compact = 
     repsInput,
     stepBtn('+1', () => bump(repsInput, 1, readReps, 1, 200)),
   ]));
+  // How hard the set felt. Deliberately NOT pre-filled from the previous set,
+  // unlike weight, reps and the add-on: those describe the prescription and the
+  // machine, which persist between sets; how hard a set felt is an outcome that
+  // genuinely changes. Carrying it over would pre-fill "Easy" onto set 4 and
+  // record it if untouched — inventing exactly the within-session fade this
+  // feature exists to capture. Optional: null means the owner did not say.
+  const intensity = intensityPicker({ value: null });
+  el.appendChild(intensity.el);
+
   el.appendChild(err);
   el.appendChild(e1rmLine);
   paintE1rm();
@@ -157,7 +166,7 @@ export function buildEntryPanel({ ex, prev, todaySets, settings, ctx, compact = 
     const r = readReps();
     if (!Number.isFinite(w)) throw new Error('Enter a weight (0 is fine for bodyweight)');
     if (!Number.isFinite(r)) throw new Error('Enter the reps');
-    await ctx.store.addSet({ exerciseId: ex.id, weightKg: w, reps: r, addOn });
+    await ctx.store.addSet({ exerciseId: ex.id, weightKg: w, reps: r, addOn, intensity: intensity.get() });
     platform.requestPersist().catch(() => {});
     toast(`Saved ✓ · set ${todaySets.length + 1}`);
     ctx.refresh();
@@ -169,9 +178,14 @@ export function buildEntryPanel({ ex, prev, todaySets, settings, ctx, compact = 
   if (repeat) {
     const btn = document.createElement('button');
     btn.className = 'btn-secondary';
-    btn.textContent = `↻ Same as last time — ${fmtSet(repeat)}`;
+    // The label shows how the source set felt, as historical context…
+    const feltLabel = INTENSITY_LABELS[repeat.intensity];
+    btn.textContent = `↻ Same as last time — ${fmtSet(repeat)}${feltLabel ? ` (felt ${feltLabel})` : ''}`;
     btn.addEventListener('click', () => guard(async () => {
-      await ctx.store.addSet({ exerciseId: ex.id, weightKg: repeat.weightKg, reps: repeat.reps, addOn: repeat.addOn === true });
+      // …but the SAVE takes today's selection, normally null. Repeat copies the
+      // prescription — weight, reps, machine setup — not the outcome. Copying
+      // repeat.intensity would assert today felt like last session did.
+      await ctx.store.addSet({ exerciseId: ex.id, weightKg: repeat.weightKg, reps: repeat.reps, addOn: repeat.addOn === true, intensity: intensity.get() });
       platform.requestPersist().catch(() => {});
       toast(`Saved ✓ · set ${todaySets.length + 1}`);
       ctx.refresh();
@@ -248,7 +262,10 @@ export function buildEntryPanel({ ex, prev, todaySets, settings, ctx, compact = 
     confirm.textContent = `Add ${result.sets.length} set${result.sets.length === 1 ? '' : 's'}`;
     saveButtons.push(confirm);
     confirm.addEventListener('click', () => guard(async () => {
-      await ctx.store.addSets(ex.id, result.sets.map((set) => ({ ...set, addOn })));
+      // A sentence like "3x8 @ 60kg" says nothing about how any individual set
+      // felt, so batch-created sets are left unrecorded rather than all being
+      // stamped with one panel-wide value. The set editor corrects them singly.
+      await ctx.store.addSets(ex.id, result.sets.map((set) => ({ ...set, addOn, intensity: null })));
       platform.requestPersist().catch(() => {});
       quickDrafts.delete(ex.id);
       toast(`Saved ✓ · ${result.sets.length} set${result.sets.length === 1 ? '' : 's'}`);

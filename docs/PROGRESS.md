@@ -1,9 +1,87 @@
 # Progress log
 
-> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 4 deployed
-> 2026-08-04 at `gt-v0.22.0` (`DB_VERSION = 2`, unchanged), tests green (Vitest 121, Playwright 43).
+> **Resuming after a break? Start with `docs/HANDOFF.md`.** Current state: change set 5 complete
+> locally at `gt-v0.25.0` with **`DB_VERSION = 3`**, tests green (Vitest 134, Playwright 49).
+> **NOT DEPLOYED — held until the owner confirms they have exported a backup** (`HANDOFF.md`).
+> Change set 4 is live at `gt-v0.22.0`.
 
 Newest entry first. Per plan §18: every phase ends with tests green, app runnable, this file updated, git commit.
+
+## 2026-08-04 — Change set 5: per-set intensity flag (schema v3) ⏸ built, awaiting backup before deploy
+
+Owner: *"I'd like to add an option to flag how intense an exercise was for me, so I know the next time
+if I struggled to finish the set or if I can go up in weights."*
+
+Owner decisions: **Easy / OK / Struggled** (not RPE, not reps-in-reserve); **per set**, not per
+session; and **show the flags only** — no "ready to go up?" nudge, so the app never makes the
+training judgement.
+
+Design brief → Codex review → response, in `docs/reviews/CHANGE_SET_5_*`. Codex raised 2 blockers,
+6 should-fixes and 1 consider; **all accepted**, and two errors in my brief corrected.
+
+**Slice 1 — `DbUpgradeError` ✅** (landed *before* the schema change it protects against)
+
+Codex's first blocker, and the most valuable finding. IndexedDB rolls a failed upgrade back
+atomically, so the data stays intact at the old version and the only fix is corrected code. But the
+rejection arrived as a *generic* error: only `VersionError` was mapped to a safe-fix type, so
+`app.js` counted it toward the failure counter and, after two reloads, offered "Still can't open it?"
+→ the erase-everything screen. The app would have been telling a beginner to wipe an undamaged
+database because of a bug in a new release.
+
+New `DbUpgradeError` covers both failure shapes — a synchronous throw in `structural`, and a record
+transform that throws inside a cursor callback and surfaces later as a transaction abort. Treated
+like `DbTooOldError`: plain-language message stating the data is unchanged, exempt from the counter,
+unable to reveal reset. The previous abort test only threw from `structural`.
+
+**Slice 2 — schema v3 ✅**
+
+`SetEntry.intensity = null | 'easy' | 'ok' | 'hard'`. A string enum, not a number: readable in the
+analysis export and impossible to mistake for something arithmetic. It is **ordinal** — the gaps are
+not equal — so nothing averages it. `null` means the owner did not say and is deliberately **not**
+`'ok'`; every set logged before this release stays null.
+
+Two writers the brief missed and Codex caught: `restoreSet` now normalises (undo is a *write*, so a
+record that escaped migration must come back canonical), and `addSets` already threads a per-row
+value through `buildSet`. Backup validation **requires** the field rather than tolerating
+`undefined` — `migrateBackup` runs first, so any genuine older file already carries an explicit null,
+and a file claiming to be current but missing it is malformed. `isValidSet` stays tolerant;
+tightening it could hide real history behind a cosmetic field.
+
+Migration tests per the MAINTENANCE rule: pure fixture test; **real v2→v3 upgrade** (the path the
+owner's phone will take); **real v1→current** asserting `muscleGroup`, `addOn` and `intensity` all
+land together. The old "v1 → v2" test is now pinned at `_version: 2` — it called `openDb({ name })`,
+so the bump would have silently turned it into a v1→v3 test under a name that no longer described it.
+
+**Slice 3 — the control ✅**
+
+A shared `intensityPicker()` in `components.js`, used by both the entry panel and the set editor so
+they cannot drift. Optional throughout: tapping the chosen level clears it back to unrecorded.
+
+**It deliberately does not carry over between sets**, unlike weight, reps and the add-on. Those
+describe the prescription and the machine, which persist; how hard a set felt is an *outcome* that
+genuinely changes. Carrying it over would pre-fill "Easy" onto set 4 and record it if untouched —
+inventing exactly the within-session fade this feature exists to capture. This differs from a
+parenthetical in the option wording the owner chose, so it is flagged to them explicitly.
+
+**Repeat** shows the source set's feeling in its label as historical context ("felt Struggled") but
+**saves today's selection**, normally null — copying it would assert today felt like last session.
+**Quick-entry batches stay unflagged**: "3x8 @ 60kg" carries no intensity information, and stamping
+one panel-wide value on three sets would invent the very variation being measured.
+
+**Slice 4 — display ✅**
+
+`fmtSet` appends the owner-facing label, not the stored token (`hard` → "Struggled"). An unrecorded
+set shows nothing rather than a middle value. The analysis export gains an `intensity` column and a
+`guidance` sentence stating it is ordinal, must not be averaged, and that null ≠ "ok".
+
+**Tests** (2026-08-04): Vitest 134/134, Playwright 49/49 (run twice, stable), `check:precache` OK.
+Cache `gt-v0.22.0` → `gt-v0.25.0`. `DB_VERSION` 2 → **3**.
+
+**Next step: the owner exports a backup and confirms, then this deploys as ONE release.** The brief
+called the inert schema slice separately deployable; `HANDOFF.md` requires holding any change that
+touches phone data until the owner confirms a backup, and two deploys would mean two migrations'
+worth of exposure for no benefit.
+
 
 ## 2026-08-04 — Change set 4: the superset picker could not be scrolled ✅
 

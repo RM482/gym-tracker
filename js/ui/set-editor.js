@@ -1,6 +1,6 @@
 // set-editor.js — one shared edit/delete flow for Log, History and Day (§6.3).
 
-import { sheet, confirmSheet, toast } from './components.js';
+import { sheet, confirmSheet, toast, intensityPicker } from './components.js';
 import { workoutDay } from '../stats.js';
 
 function localInputValue(ms) {
@@ -51,6 +51,11 @@ export function openSetEditor(set, ctx) {
       };
       addOnToggle.addEventListener('click', () => { addOn = !addOn; paintAddOn(); });
       paintAddOn();
+
+      // Correctable after the fact — including a set logged before the feature
+      // existed, and back to unrecorded. This is also where a quick-entry batch
+      // gets its individual sets flagged, since a sentence carries no intensity.
+      const intensity = intensityPicker({ value: set.intensity ?? null });
       const when = makeField('Date and time', initialDateTime, undefined, 'datetime-local');
       const dayNote = document.createElement('p');
       dayNote.className = 'day-move-note';
@@ -81,7 +86,7 @@ export function openSetEditor(set, ctx) {
         error.textContent = '';
         const weightKg = Number(String(weight.input.value).replace(',', '.'));
         const repetitions = Number(reps.input.value);
-        const patch = { weightKg, reps: repetitions, addOn };
+        const patch = { weightKg, reps: repetitions, addOn, intensity: intensity.get() };
         if (when.input.value !== initialDateTime) {
           const date = parseLocalDateTime(when.input.value);
           if (!date) { error.textContent = 'Choose a valid date and time'; return; }
@@ -139,7 +144,7 @@ export function openSetEditor(set, ctx) {
       cancel.className = 'btn-secondary';
       cancel.textContent = 'Cancel';
       cancel.addEventListener('click', close);
-      card.append(weight.label, reps.label, addOnToggle, when.label, dayNote, error, save, remove, cancel);
+      card.append(weight.label, reps.label, addOnToggle, intensity.el, when.label, dayNote, error, save, remove, cancel);
     },
   });
 }

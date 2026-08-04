@@ -447,6 +447,27 @@ button:disabled { cursor: default; }
 }
 .group-arrow { width: 1em; color: var(--text-soft); }
 
+/* Intensity picker: three equal buttons, selection carried by aria-pressed so
+   it is announced as well as drawn (same rule as the group fold control). */
+.intensity-wrap { margin-bottom: 0.75rem; }
+.intensity-row { display: flex; gap: 0.4rem; }
+.intensity-btn {
+  flex: 1;
+  min-height: 2.75rem;
+  padding: 0.4rem 0.5rem;
+  font-size: max(1rem, 16px);
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.intensity-btn[aria-pressed='true'] {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
 /* Exercise picker: the LIST scrolls, not the whole sheet, so the title and
    Cancel stay put instead of scrolling away from someone halfway down. */
 .picker-list {

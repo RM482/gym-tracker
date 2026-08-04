@@ -1,6 +1,6 @@
 # Handoff — resume here
 
-Last updated: 2026-08-04, after deploying change set 4. Written so Claude, Codex, or the owner can pick this up cold.
+Last updated: 2026-08-04. Change set 5 is BUILT BUT NOT DEPLOYED — see below. Written so Claude, Codex, or the owner can pick this up cold.
 
 ## Where things stand
 
@@ -8,8 +8,8 @@ The app is **built, deployed and in real use**. v1 (phases 0–8) shipped on 202
 
 - Live: <https://rm482.github.io/gym-tracker/> — repo `RM482/gym-tracker`, GitHub Pages from `main`. Push to `main` = deploy.
 - Working tree clean, `main` in sync with `origin/main`; change set 3 shipped in commits `96c011e`–`ede64d0`, Pages build verified serving `gt-v0.21.0`.
-- Service-worker cache `gt-v0.22.0`. **`DB_VERSION = 2`** (unchanged — neither change set 3 nor 4 touched the schema).
-- Tests green: **Vitest 121/121, Playwright 43/43, `check:precache` OK (28 files).**
+- Live cache `gt-v0.22.0` at `DB_VERSION = 2`. **Locally, change set 5 sits at `gt-v0.25.0` with `DB_VERSION = 3` and is deliberately unpushed** until the owner confirms a backup (see the rule at the end of this file).
+- Tests green: **Vitest 134/134, Playwright 49/49, `check:precache` OK (28 files).**
 
 ```bash
 npm install          # once
@@ -105,7 +105,8 @@ Recorded in `docs/DECISIONS.md` (D1–D11). The ones most likely to be re-litiga
 
 ## Schema and deploy rules
 
-- `DB_VERSION = 2`. The v1→v2 migration adds `Exercise.muscleGroup` (nullable) and `SetEntry.addOn` (boolean, default false).
+- `DB_VERSION = 3`. v1→v2 adds `Exercise.muscleGroup` (nullable) and `SetEntry.addOn` (boolean). v2→v3 adds `SetEntry.intensity` (`null | 'easy' | 'ok' | 'hard'`; null = not recorded, which is NOT 'ok').
+- A failed upgrade now raises `DbUpgradeError`, which — like `DbTooOldError` — states the data is unchanged and can never lead to the reset screen. Keep it that way when adding migrations.
 - **Never lower `DB_VERSION`.** Upgrades are one-way; a rollback that reverts it breaks every upgraded device. Revert behaviour, keep the version and its readers. See `docs/MAINTENANCE.md`.
 - Any new schema change must ship: the record transform, updated constructors/validators, a pure fixture test **and** a real database-upgrade test, plus backup-import coverage. `migrateBackup()` in `backup.js` replays the same transforms — do not fork that logic.
 - Writes are canonical, reads are tolerant: new fields are normalised on read so a record that escaped a migration is corrected rather than hidden from history. Keep that split.
