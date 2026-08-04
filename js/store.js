@@ -20,6 +20,7 @@
 //   Diagnostics: unreadableCount() — malformed records seen by reads (plan §12)
 
 import { workoutDay, compareSets } from './stats.js';
+import { INTENSITIES } from './db.js';
 
 export class ValidationError extends Error {
   constructor(message, field = null) { super(message); this.field = field; }
@@ -78,7 +79,15 @@ export function normalizeExercise(x) {
 }
 
 export function normalizeSet(s) {
-  return { ...s, addOn: s.addOn === true };
+  return { ...s, addOn: s.addOn === true, intensity: INTENSITIES.includes(s.intensity) ? s.intensity : null };
+}
+
+// How hard the set felt, as the owner reported it. Optional everywhere: `null`
+// means they did not say, and must never be read as "it was fine".
+export function validateIntensity(value) {
+  if (value === null || value === undefined) return null;
+  if (!INTENSITIES.includes(value)) throw new ValidationError('Unknown intensity', 'intensity');
+  return value;
 }
 
 // The Home section-folding preference (change set 3). Settings is a free-form
@@ -129,10 +138,11 @@ export function createStore({ dbHandle, platform }) {
     if (ms > platform.now() + FUTURE_SLACK_MS) throw new ValidationError('That time is in the future', 'performedAtMs');
   }
 
-  function buildSet(exerciseId, { weightKg, reps, performedAtMs, addOn = false }) {
+  function buildSet(exerciseId, { weightKg, reps, performedAtMs, addOn = false, intensity = null }) {
     validateWeight(weightKg);
     validateReps(reps);
     validatePerformedAt(performedAtMs);
+    const feel = validateIntensity(intensity);
     const tz = platform.tzOffsetMin(performedAtMs);
     return {
       id: platform.uuid(),
@@ -140,6 +150,7 @@ export function createStore({ dbHandle, platform }) {
       weightKg,
       reps,
       addOn: addOn === true,
+      intensity: feel,
       performedAtMs,
       tzOffsetMin: tz,
       workoutDay: workoutDay(performedAtMs, tz),
@@ -296,8 +307,8 @@ export function createStore({ dbHandle, platform }) {
 
     // ---------- sets ----------
 
-    async addSet({ exerciseId, weightKg, reps, performedAtMs = platform.now(), addOn = false }) {
-      const rec = buildSet(exerciseId, { weightKg, reps, performedAtMs, addOn });
+    async addSet({ exerciseId, weightKg, reps, performedAtMs = platform.now(), addOn = false, intensity = null }) {
+      const rec = buildSet(exerciseId, { weightKg, reps, performedAtMs, addOn, intensity });
       return dbHandle.run(['exercises', 'sets', 'settings'], 'readwrite', async (s) => {
         // FK check inside the same transaction that writes (plan §8.2).
         const ex = await s.exercises.get(exerciseId);
@@ -331,6 +342,7 @@ export function createStore({ dbHandle, platform }) {
         validateWeight(next.weightKg);
         validateReps(next.reps);
         next.addOn = next.addOn === true; // correctable from the edit sheet (D7)
+        next.intensity = validateIntensity(next.intensity); // likewise correctable
         if (next.performedAtMs !== rec.performedAtMs) {
           validatePerformedAt(next.performedAtMs);
           // §11.1: a timestamp edit re-derives the offset from the phone's
@@ -356,12 +368,16 @@ export function createStore({ dbHandle, platform }) {
       });
     },
 
-    // Undo: re-insert the identical record (same id) if its exercise still exists.
+    // Undo: re-insert the record under the same id if its exercise still exists.
+    // Normalised on the way back in: this is a WRITE, and a record that had
+    // escaped a migration would otherwise be re-inserted still missing fields,
+    // against the writes-canonical/reads-tolerant rule. A genuine recorded
+    // intensity is preserved; a missing one becomes an explicit null.
     async restoreSet(record) {
       return dbHandle.run(['exercises', 'sets', 'settings'], 'readwrite', async (s) => {
         const ex = await s.exercises.get(record.exerciseId);
         if (!ex) throw new ValidationError('That exercise no longer exists');
-        await s.sets.put(record);
+        await s.sets.put(normalizeSet(record));
         await touchDataChange(s);
         return record;
       });

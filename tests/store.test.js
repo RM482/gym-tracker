@@ -353,6 +353,80 @@ describe('v2 fields: muscle group and machine add-on', () => {
   });
 });
 
+// Change set 5. Optional per-set field: null means the owner did not say, which
+// must never be read as "it was fine".
+describe('v3 field: per-set intensity', () => {
+  it('defaults to null, accepts the three levels, and rejects anything else', async () => {
+    const ex = await store.addExercise('Bench');
+    const plain = await store.addSet({ exerciseId: ex.id, weightKg: 60, reps: 8 });
+    expect(plain.intensity).toBeNull();
+
+    for (const value of ['easy', 'ok', 'hard']) {
+      const rec = await store.addSet({ exerciseId: ex.id, weightKg: 60, reps: 8, intensity: value });
+      expect(rec.intensity).toBe(value);
+    }
+    await expect(store.addSet({ exerciseId: ex.id, weightKg: 60, reps: 8, intensity: 'MASSIVE' }))
+      .rejects.toBeInstanceOf(ValidationError);
+    await expect(store.addSet({ exerciseId: ex.id, weightKg: 60, reps: 8, intensity: 3 }))
+      .rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it('is correctable after the fact, including back to unrecorded', async () => {
+    const ex = await store.addExercise('Row');
+    const rec = await store.addSet({ exerciseId: ex.id, weightKg: 50, reps: 10, intensity: 'ok' });
+    expect((await store.editSet(rec.id, { intensity: 'hard' })).intensity).toBe('hard');
+    expect((await store.editSet(rec.id, { intensity: null })).intensity).toBeNull();
+    await expect(store.editSet(rec.id, { intensity: 'nope' })).rejects.toBeInstanceOf(ValidationError);
+    // An unrelated edit leaves it alone.
+    await store.editSet(rec.id, { intensity: 'easy' });
+    expect((await store.editSet(rec.id, { reps: 12 })).intensity).toBe('easy');
+  });
+
+  it('the quick-entry batch takes a value per set and defaults each to null', async () => {
+    const ex = await store.addExercise('Squat');
+    const recs = await store.addSets(ex.id, [
+      { weightKg: 60, reps: 5 },
+      { weightKg: 60, reps: 5, intensity: 'hard' },
+    ]);
+    expect(recs.map((r) => r.intensity)).toEqual([null, 'hard']);
+  });
+
+  it('survives delete and undo, and undo canonicalises a legacy record', async () => {
+    const ex = await store.addExercise('Dip');
+    const rec = await store.addSet({ exerciseId: ex.id, weightKg: 0, reps: 12, intensity: 'hard' });
+    const deleted = await store.deleteSet(rec.id);
+    await store.restoreSet(deleted);
+    expect((await store.getSetsForExercise(ex.id))[0].intensity).toBe('hard');
+
+    // Undo is a WRITE, so a record that escaped migration must come back
+    // canonical rather than being re-inserted still missing the field.
+    const legacy = { ...deleted, id: 'legacy-1' };
+    delete legacy.intensity;
+    await store.restoreSet(legacy);
+    const restored = (await store.getSetsForExercise(ex.id)).find((s) => s.id === 'legacy-1');
+    expect(restored.intensity).toBeNull();
+  });
+
+  it('reads tolerantly: a record that escaped migration is corrected, not hidden', async () => {
+    const ex = await store.addExercise('Curl');
+    const rec = await store.addSet({ exerciseId: ex.id, weightKg: 20, reps: 10 });
+    const dbHandle = await openDb({ name: `store-test-${dbCount}` });
+    await dbHandle.run('sets', 'readwrite', (s) => s.sets.put({ ...rec, intensity: 'WRONG' }));
+    // Still returned — a cosmetic field must never make real history vanish.
+    const [read] = await store.getSetsForExercise(ex.id);
+    expect(read.intensity).toBeNull();
+    expect(read.weightKg).toBe(20);
+    dbHandle.close();
+  });
+
+  it('exports canonical intensity in a backup snapshot', async () => {
+    const ex = await store.addExercise('Press');
+    await store.addSet({ exerciseId: ex.id, weightKg: 40, reps: 6, intensity: 'easy' });
+    const snapshot = await store.snapshotForBackup();
+    expect(snapshot.sets[0].intensity).toBe('easy');
+  });
+});
+
 describe('backup reminder timing (plan §6.1)', () => {
   const DAY = 86400000;
   const now = Date.UTC(2026, 6, 21);

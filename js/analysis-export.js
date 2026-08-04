@@ -24,6 +24,7 @@ export function buildAnalysisExport({ exercises, sets, exportedAtMs }) {
       reps: set.reps,
       isBodyweight: set.weightKg === 0,
       machineAddOn: set.addOn === true,
+      intensity: set.intensity ?? null,
     };
   });
   const days = [...new Set(rows.map((row) => row.workoutDay))].sort();
@@ -32,7 +33,7 @@ export function buildAnalysisExport({ exercises, sets, exportedAtMs }) {
     format: 'llm-analysis',
     formatVersion: 1,
     exportedAtUtc: new Date(exportedAtMs).toISOString(),
-    guidance: 'Each row is one completed set. Weight is external load in kilograms; weightKg 0 means pure bodyweight. Workout days run from 03:00 to 03:00 local time. machineAddOn true means the machine\'s small add-on weight was engaged; its kilogram value is unknown and is deliberately NOT included in weightKg, so a set with machineAddOn true is a heavier effort than the same weightKg without it. exerciseMuscleGroup is null when the exercise has not been categorised.',
+    guidance: 'Each row is one completed set. Weight is external load in kilograms; weightKg 0 means pure bodyweight. Workout days run from 03:00 to 03:00 local time. machineAddOn true means the machine\'s small add-on weight was engaged; its kilogram value is unknown and is deliberately NOT included in weightKg, so a set with machineAddOn true is a heavier effort than the same weightKg without it. exerciseMuscleGroup is null when the exercise has not been categorised. intensity is how hard the set felt, reported by the lifter at the time: "easy", "ok" or "hard" (shown in the app as Easy / OK / Struggled). It is ORDINAL, not numeric — the gaps between levels are not equal, so do not average it. intensity null means the lifter did not record it, which is NOT the same as "ok"; every set logged before this field existed is null.',
     summary: {
       exerciseCount: new Set(rows.map((row) => row.exerciseId)).size,
       setCount: rows.length,

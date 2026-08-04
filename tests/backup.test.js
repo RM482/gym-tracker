@@ -122,7 +122,9 @@ describe('restoring a genuine v1 backup into v2', () => {
 // junk would be imported and later re-exported as nominally valid v2 data.
 describe('current-schema enforcement on import (G2)', () => {
   const ex = { id: 'e', name: 'Row', sortOrder: 0, archivedAtMs: null, createdAtMs: 1, updatedAtMs: 1, muscleGroup: null };
-  const set = { id: 's', exerciseId: 'e', weightKg: 10, reps: 8, addOn: false, performedAtMs: 1, tzOffsetMin: 0, workoutDay: '2026-07-19', createdAtMs: 1, updatedAtMs: 1 };
+  // Current schema is v3: a file claiming to be current must carry intensity
+  // explicitly (null = the lifter did not say).
+  const set = { id: 's', exerciseId: 'e', weightKg: 10, reps: 8, addOn: false, intensity: null, performedAtMs: 1, tzOffsetMin: 0, workoutDay: '2026-07-19', createdAtMs: 1, updatedAtMs: 1 };
   const current = { app: 'gym-tracker', schemaVersion: DB_VERSION, exercises: [ex], sets: [set], settings: { id: 'app' } };
 
   it('accepts a well-formed current backup', () => {
@@ -140,10 +142,36 @@ describe('current-schema enforcement on import (G2)', () => {
   });
 
   it('still accepts a v1 file whose records simply lack the fields', () => {
-    const v1 = { ...current, schemaVersion: 1, exercises: [{ ...ex, muscleGroup: undefined }], sets: [{ ...set, addOn: undefined }] };
+    const v1 = { ...current, schemaVersion: 1, exercises: [{ ...ex, muscleGroup: undefined }], sets: [{ ...set, addOn: undefined, intensity: undefined }] };
     const staged = validateBackup(v1);
     expect(staged.exercises[0].muscleGroup).toBeNull();
     expect(staged.sets[0].addOn).toBe(false);
+    expect(staged.sets[0].intensity).toBeNull();
+  });
+
+  it('accepts a v2 file and stamps intensity null on the way in', () => {
+    const v2 = { ...current, schemaVersion: 2, sets: [{ ...set, intensity: undefined }] };
+    const staged = validateBackup(v2);
+    expect(staged.schemaVersion).toBe(DB_VERSION);
+    expect(staged.sets[0].intensity).toBeNull();
+    // Nothing else about the set was disturbed.
+    expect(staged.sets[0].weightKg).toBe(10);
+    expect(staged.sets[0].addOn).toBe(false);
+  });
+
+  it('accepts every real intensity value and rejects anything else', () => {
+    for (const value of ['easy', 'ok', 'hard', null]) {
+      expect(validateBackup({ ...current, sets: [{ ...set, intensity: value }] }).sets[0].intensity).toBe(value);
+    }
+    for (const bad of ['HARD', 'struggled', 3, true, '']) {
+      expect(() => validateBackup({ ...current, sets: [{ ...set, intensity: bad }] })).toThrow(/Invalid intensity/);
+    }
+  });
+
+  // A file that says it is current but omits the field is malformed: by this
+  // point migration has run, so a genuine older file would already carry null.
+  it('rejects a nominally current file whose set omits intensity', () => {
+    expect(() => validateBackup({ ...current, sets: [{ ...set, intensity: undefined }] })).toThrow(/Invalid intensity/);
   });
 
   it('rejects a v1 file carrying an invalid group that migration cannot fix', () => {

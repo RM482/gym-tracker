@@ -18,7 +18,12 @@
 // no invented history). The `records` functions are pure and reused by the
 // backup import path (backup.js, Phase 7).
 
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
+
+// How hard a set felt, in the owner's own words (change set 5). Ordered but not
+// evenly spaced, so it is ordinal: nothing may average it. `null` means the
+// owner did not say, which is NOT the same as 'ok'.
+export const INTENSITIES = ['easy', 'ok', 'hard'];
 
 // v1 → v2 (change set 1): adds Exercise.muscleGroup (nullable — Ungrouped until
 // the owner assigns one) and SetEntry.addOn (required boolean — whether the
@@ -30,6 +35,18 @@ export const migrations = {
     records: {
       exercises: (x) => ({ ...x, muscleGroup: x.muscleGroup ?? null }),
       sets: (s) => ({ ...s, addOn: s.addOn === true }),
+    },
+  },
+  // v2 → v3 (change set 5): adds SetEntry.intensity — how hard the set felt,
+  // as the owner reported it: null | 'easy' | 'ok' | 'hard'. Records only.
+  //
+  // Every set logged before this release becomes `null`, meaning NOT RECORDED,
+  // which is deliberately distinct from 'ok'. Nothing may retroactively claim
+  // an old set felt a particular way (the same distinction D8 draws between
+  // Ungrouped and a deliberate Other).
+  2: {
+    records: {
+      sets: (s) => ({ ...s, intensity: INTENSITIES.includes(s.intensity) ? s.intensity : null }),
     },
   },
 };

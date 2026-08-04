@@ -149,9 +149,9 @@ describe('old code opening a newer database (F9)', () => {
 // MAINTENANCE.md requires every real migration to ship BOTH a pure record-transform
 // fixture test AND a database-level upgrade test from a real older database.
 describe('v1 → v2 migration (muscleGroup + addOn)', () => {
-  it('DB_VERSION is 2 and the v1 step exists', () => {
-    expect(DB_VERSION).toBe(2);
-    expect(migrations[1]).toBeTruthy();
+  it('DB_VERSION is 3 and every step from v1 up exists', () => {
+    expect(DB_VERSION).toBe(3);
+    for (let v = 1; v < DB_VERSION; v++) expect(migrations[v], `missing migration ${v}`).toBeTruthy();
   });
 
   it('pure transforms add the fields with safe defaults and preserve everything else', () => {
@@ -169,7 +169,11 @@ describe('v1 → v2 migration (muscleGroup + addOn)', () => {
     expect(sets({ ...v1Set, addOn: 'yes' }).addOn).toBe(false);
   });
 
-  it('upgrades a REAL v1 database in place, keeping every record', async () => {
+  // Pinned at _version: 2 on purpose. It used to call openDb({ name }), which
+  // silently became a v1→v3 test the moment DB_VERSION was bumped — testing
+  // something other than what its name claims. The v1→current path is covered
+  // separately below.
+  it('upgrades a REAL v1 database to v2 in place, keeping every record', async () => {
     const name = fresh();
     // Build a genuine v1 database with v1-shaped records.
     const v1 = await openDb({ name, _version: 1, _migrations: {} });
@@ -181,8 +185,8 @@ describe('v1 → v2 migration (muscleGroup + addOn)', () => {
     });
     v1.close();
 
-    // Open at the current version: the real migration runs.
-    const v2 = await openDb({ name });
+    // Open at v2 specifically: only the v1→v2 step runs.
+    const v2 = await openDb({ name, _version: 2 });
     const exercises = await v2.run('exercises', 'readonly', (s) => s.exercises.getAll());
     const sets = await v2.run('sets', 'readonly', (s) => s.sets.getAll());
 
@@ -196,13 +200,81 @@ describe('v1 → v2 migration (muscleGroup + addOn)', () => {
     v2.close();
   });
 
-  it('a fresh install bootstraps directly at v2 with no migration', async () => {
+  it('a fresh install bootstraps directly at the current version with no migration', async () => {
     const h = await openDb({ name: fresh() });
     await h.run('exercises', 'readwrite', (s) => s.exercises.put({ id: 'e1', name: 'New', sortOrder: 0, createdAtMs: 1 }));
     const [rec] = await h.run('exercises', 'readonly', (s) => s.exercises.getAll());
     expect(rec.id).toBe('e1');
     h.close();
   });
+
+// v2 → v3 is the upgrade the owner's phone will actually perform: it is the
+// version their data is on today. MAINTENANCE.md requires both a pure fixture
+// test and a real database-upgrade test for every migration.
+describe('v2 → v3 migration (per-set intensity)', () => {
+  it('the pure transform stamps null and preserves everything else', () => {
+    const { sets } = migrations[2].records;
+    const v2Set = { id: 's1', exerciseId: 'e1', weightKg: 40, reps: 8, addOn: false, performedAtMs: 5, tzOffsetMin: 120, workoutDay: '2026-07-19', createdAtMs: 5, updatedAtMs: 5 };
+
+    // A set logged before this feature existed did not "feel ok" — it is
+    // unrecorded, and null is how that is said.
+    expect(sets(v2Set)).toEqual({ ...v2Set, intensity: null });
+
+    // Idempotent for a real value, and junk never leaks through.
+    expect(sets({ ...v2Set, intensity: 'hard' }).intensity).toBe('hard');
+    expect(sets({ ...v2Set, intensity: 'easy' }).intensity).toBe('easy');
+    expect(sets({ ...v2Set, intensity: 'ok' }).intensity).toBe('ok');
+    expect(sets({ ...v2Set, intensity: 'MASSIVE' }).intensity).toBe(null);
+    expect(sets({ ...v2Set, intensity: 3 }).intensity).toBe(null);
+    expect(sets({ ...v2Set, intensity: '' }).intensity).toBe(null);
+  });
+
+  it('upgrades a REAL v2 database, the path the owner\u2019s phone takes', async () => {
+    const name = fresh();
+    const v2 = await openDb({ name, _version: 2 });
+    await v2.run(['exercises', 'sets'], 'readwrite', async (s) => {
+      await s.exercises.put({ id: 'e1', name: 'Bench', muscleGroup: 'Chest', sortOrder: 0, archivedAtMs: null, createdAtMs: 1, updatedAtMs: 1 });
+      await s.sets.put({ id: 's1', exerciseId: 'e1', weightKg: 60, reps: 8, addOn: false, performedAtMs: 5, tzOffsetMin: 120, workoutDay: '2026-07-19', createdAtMs: 5, updatedAtMs: 5 });
+      await s.sets.put({ id: 's2', exerciseId: 'e1', weightKg: 60, reps: 6, addOn: true, performedAtMs: 6, tzOffsetMin: 120, workoutDay: '2026-07-19', createdAtMs: 6, updatedAtMs: 6 });
+    });
+    v2.close();
+
+    const v3 = await openDb({ name });
+    const sets = await v3.run('sets', 'readonly', (s) => s.sets.getAll());
+    const exercises = await v3.run('exercises', 'readonly', (s) => s.exercises.getAll());
+
+    expect(sets).toHaveLength(2);
+    expect(sets.every((x) => x.intensity === null)).toBe(true);
+    // Everything from v2 survives untouched, including the add-on flag and group.
+    expect(sets.find((x) => x.id === 's2').addOn).toBe(true);
+    expect(sets.find((x) => x.id === 's1').weightKg).toBe(60);
+    expect(exercises[0].muscleGroup).toBe('Chest');
+    v3.close();
+  });
+
+  it('upgrades a REAL v1 database all the way to the current version', async () => {
+    const name = fresh();
+    const v1 = await openDb({ name, _version: 1, _migrations: {} });
+    await v1.run(['exercises', 'sets'], 'readwrite', async (s) => {
+      await s.exercises.put({ id: 'e1', name: 'Row', sortOrder: 0, archivedAtMs: null, createdAtMs: 1, updatedAtMs: 1 });
+      await s.sets.put({ id: 's1', exerciseId: 'e1', weightKg: 40, reps: 8, performedAtMs: 5, tzOffsetMin: 120, workoutDay: '2026-07-19', createdAtMs: 5, updatedAtMs: 5 });
+    });
+    v1.close();
+
+    // Both steps run, in order, over one cursor per store (G4).
+    const current = await openDb({ name });
+    const [ex] = await current.run('exercises', 'readonly', (s) => s.exercises.getAll());
+    const [set] = await current.run('sets', 'readonly', (s) => s.sets.getAll());
+
+    // All three fields from both migrations are present together.
+    expect(ex.muscleGroup).toBe(null);
+    expect(set.addOn).toBe(false);
+    expect(set.intensity).toBe(null);
+    expect(set.weightKg).toBe(40);
+    current.close();
+  });
+});
+
 });
 
 // G4: a multi-version upgrade previously opened one cursor per version over the

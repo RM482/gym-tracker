@@ -47,13 +47,19 @@ describe('analysis export carries v2 context', () => {
     const data = buildAnalysisExport({
       exercises: [{ id: 'press', name: 'Leg press', muscleGroup: 'Legs', archivedAtMs: null }],
       sets: [
-        { id: 'a', exerciseId: 'press', weightKg: 50, reps: 10, addOn: true, performedAtMs: Date.UTC(2026, 6, 15, 10), createdAtMs: 1, tzOffsetMin: 120, workoutDay: '2026-07-15' },
+        { id: 'a', exerciseId: 'press', weightKg: 50, reps: 10, addOn: true, intensity: null, performedAtMs: Date.UTC(2026, 6, 15, 10), createdAtMs: 1, tzOffsetMin: 120, workoutDay: '2026-07-15' },
         { id: 'b', exerciseId: 'press', weightKg: 50, reps: 10, addOn: false, performedAtMs: Date.UTC(2026, 6, 15, 10, 5), createdAtMs: 2, tzOffsetMin: 120, workoutDay: '2026-07-15' },
       ],
       exportedAtMs: Date.UTC(2026, 6, 21),
     });
 
     expect(data.sets.map((s) => s.machineAddOn)).toEqual([true, false]);
+    // v3: intensity travels with each set, and unrecorded stays null rather
+    // than being filled in with a middle value.
+    expect(data.sets.map((s) => s.intensity)).toEqual([null, null]);
+    expect(data.guidance).toMatch(/intensity is how hard the set felt/);
+    expect(data.guidance).toMatch(/do not average it/i);
+    expect(data.guidance).toMatch(/NOT the same as "ok"/);
     expect(data.sets.every((s) => s.weightKg === 50)).toBe(true); // never inflated
     expect(data.guidance).toMatch(/machineAddOn/);
     expect(data.guidance).toMatch(/not included in weightKg/i);

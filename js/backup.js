@@ -6,7 +6,7 @@
 // would reject a genuine older backup for lacking a field that the migration it
 // has not yet run would have supplied.
 
-import { DB_VERSION, migrations } from './db.js';
+import { DB_VERSION, INTENSITIES, migrations } from './db.js';
 import { MUSCLE_GROUPS } from './store.js';
 
 export function buildBackup(snapshot, exportedAtMs) {
@@ -91,6 +91,11 @@ export function validateBackup(input) {
       || typeof set.performedAtMs !== 'number' || !Number.isFinite(set.performedAtMs)
       || typeof set.tzOffsetMin !== 'number' || typeof set.workoutDay !== 'string') throw new BackupError(`Invalid set: ${set.id}`);
     if (!(set.addOn === undefined || typeof set.addOn === 'boolean')) throw new BackupError(`Invalid machine add-on flag on set: ${set.id}`);
+    // Required, not merely tolerated: migrateBackup has already run by here, so
+    // every genuine older file has been stamped with an explicit null. A file
+    // claiming to be current but missing the field is malformed, and accepting
+    // it would let it restore and re-export as though it were valid.
+    if (!(set.intensity === null || INTENSITIES.includes(set.intensity))) throw new BackupError(`Invalid intensity on set: ${set.id}`);
   }
   // `unreadable` records are carried in the file for manual inspection and are
   // deliberately never restored into the database (plan §16, S3).
